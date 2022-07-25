@@ -20,7 +20,6 @@ import util
 from . import anom_detector, cont_device, load_device
 import pandas as pd
 import os
-from datetime import datetime
 
 class Operator(util.OperatorBase):
     def __init__(self, device_id, data_path):
