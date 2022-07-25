@@ -31,7 +31,7 @@ class Operator(util.OperatorBase):
         self.anomaly_detector = anom_detector.Anomaly_Detector(device_id)
 
     def get_device_type(data_list):# entris in data_list are of the form (timestamp, data point)
-        data_series = pd.Series(...)
+        data_series = pd.Series(data=[data_point for _, data_point in data_list], index=[timestamp for timestamp, _ in data_list])
         device_type = 'cont_device'
         for timestamp_1 in data_series.index:
             constantly_zero = True
@@ -49,7 +49,7 @@ class Operator(util.OperatorBase):
             if self.anomaly_detector.device_type == 'cont_device':
                 if self.anomaly_detector.last_training_time == self.anomaly_detector.initial_time:
                     self.anomaly_detector.model = cont_device.Autoencoder(32)
-                self.anomaly_detector.model = cont_device.batch_train(self.anomaly_detector.model, self.anomaly_detector.data.loc[data['energy_time']-pd.Timedelta(14, 'days'):data['energy_time']], self.model_file_path)
+                self.anomaly_detector.model = cont_device.batch_train(self.anomaly_detector.model, self.anomaly_detector.data, self.model_file_path)
             elif self.anomaly_detector.device_type == 'load_device':
                 pass # training IsolationForest is that fast, that we can train it again with every new data point.
             self.anomaly_detector.last_training_time = data['energy_time']
@@ -65,6 +65,8 @@ class Operator(util.OperatorBase):
             return output
 
     def run(self, data, selector='energy_func'):
+        if os.getenv("DEBUG") is not None and os.getenv("DEBUG").lower() == "true":
+            print(selector + ": " + str(data))
         self.anomaly_detector.data.append([data['energy_time'], data['energy']])
         if self.anomaly_detector.first_data_time == None:
             self.anomaly_detector.first_data_time = data['energy_time']

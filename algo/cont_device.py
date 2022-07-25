@@ -63,7 +63,7 @@ class Autoencoder(nn.Module):
         return self.decoder(z)
 
 
-def train(autoencoder, tr_data, val_data, epochs, use_cuda):
+def train(autoencoder, tr_data, epochs, use_cuda):
     if use_cuda:
         autoencoder = autoencoder.cuda()
     opt = torch.optim.Adam(autoencoder.parameters(), lr=0.0001)
@@ -71,7 +71,6 @@ def train(autoencoder, tr_data, val_data, epochs, use_cuda):
     #average_val_loss_per_epoch_list = []
     for _ in range(epochs):
         list_of_tr_losses = []
-        list_of_val_losses = []
         for x in tr_data:
             if use_cuda:
                 x = x.cuda() # GPU
@@ -104,16 +103,17 @@ def train(autoencoder, tr_data, val_data, epochs, use_cuda):
 def prepare_batches(history_data_series, batch_length_days):
     if history_data_series.Index.max-history_data_series.Index.min > pd.Timedelta(batch_length_days,'d'):
         data_set_tr = preprocessing.minute_resampling(history_data_series)
-        data_set_tr = data_set_tr.iloc[-60*24*batch_length_days:]
+        data_set_tr = data_set_tr.loc[-pd.Timedelta(batch_length_days,'days'):]
         data_set_tr = preprocessing.smooth_data(data_set_tr)
         return preprocessing.decompose_into_time_windows(data_set_tr, window_length=405)
     else:
         return preprocessing.decompose_into_time_windows(history_data_series, window_length=405)
 
-def batch_train(autoencoder, history_data_series, model_file_path, batch_length_days=14, epochs=1000):
-    normalized_history_data_series = preprocessing.normalize_data(history_data_series)
+def batch_train(autoencoder, data_list, model_file_path, batch_length_days=14, epochs=1000):
+    data_series = pd.Series(data=[data_point for _, data_point in data_list], index=[timestamp for timestamp, _ in data_list])
+    normalized_history_data_series = preprocessing.normalize_data(data_series)
     training_batches = prepare_batches(normalized_history_data_series, batch_length_days)
-    autoencoder, _ = train(autoencoder, torch.Tensor(training_batches), torch.Tensor(training_batches), epochs, use_cuda)
+    autoencoder, _ = train(autoencoder, torch.Tensor(training_batches), epochs, use_cuda)
     torch.save(autoencoder.state_dict(), model_file_path)
     return autoencoder
 

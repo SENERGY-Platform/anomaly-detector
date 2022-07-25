@@ -30,7 +30,6 @@ def extract_loads(time_series):
                 new_load.append(start_index)
     for load in list_of_load_inds:
         list_of_loads.append(time_series[load])
-    
     return list_of_loads
 
 def padding(list_of_loads, length):
