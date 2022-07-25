@@ -4,6 +4,7 @@ import torch.nn.functional as F
 import pandas as pd
 import numpy as np
 import scipy.integrate as integrate
+import typing
 
 import preprocessing
 import error_calculation
@@ -143,16 +144,17 @@ def get_anomalous_part(anomalous_time_window, model, short_time_length=50):
         errors.append(integrate.simpson(abs(array_of_short_parts[i]-array_of_approx_short_parts[i])).item(0))
     return array_of_short_parts[np.argmax(errors)]
 
-def test(data_series, model):
-    model.eval()
+def test(data_series, anomaly_detector: typing.anom_detector.Anomaly_Detector, window_length=405):
+    anomaly_detector.model.eval()
     data_series = preprocessing.minute_resampling(data_series)
     data_series = preprocessing.smooth_data(data_series)
-    data_array = preprocessing.decompose_into_time_windows(data_series, window_length=405)
-    reconstruction_errors = get_errors(data_array, model)
+    data_array = preprocessing.decompose_into_time_windows(data_series, window_length)
+    reconstruction_errors = get_errors(data_array, anomaly_detector.model)
     anomalous_reconstruction_indices = error_calculation.get_anomalous_indices(reconstruction_errors)
     if len(reconstruction_errors)-1 in anomalous_reconstruction_indices:
-        # Maybe check for anomalous window part here.
-        return 'An anomaly might just have occured!'
-    model.train()
+        anomalous_time_window = data_series.iloc[(len(reconstruction_errors)-1)*window_length:len(reconstruction_errors)*window_length]
+        anomaly_detector.anomalies.append((anomalous_time_window,get_anomalous_part(anomalous_time_window, anomaly_detector.model, short_time_length = 50)))
+        return 1
+    anomaly_detector.model.train()
 
     

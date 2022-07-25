@@ -9,7 +9,7 @@ class Anomaly_Detector:
         self.device_id = device_id
         self.device_type = None
         self.model = None
-        self.anomalies = None
+        self.anomalies = []
 
         
 

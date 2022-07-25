@@ -1,8 +1,11 @@
 import numpy as np
+import pandas as pd
 from sklearn.ensemble import IsolationForest
 import pickle
+import typing
 
-import preprocessing
+from . import anom_detector, preprocessing
+from anom_detector import Anomaly_Detector
 
 def extract_loads(time_series):
     list_of_loads = []
@@ -38,7 +41,7 @@ def padding(list_of_loads, length):
         if len(load) >= length:
             list_of_padded_loads.append(np.array(load[:length]))
         elif len(load) < length:
-            list_of_padded_loads.append(np.append(load, np.zeros(length-len(load))))
+            list_of_padded_loads.append(np.append(np.array(load), np.zeros(length-len(load))))
     return np.array(list_of_padded_loads)
 
 def find_anomalous_lengths(list_of_loads):
@@ -47,12 +50,15 @@ def find_anomalous_lengths(list_of_loads):
     anomalous_length_indices = model.predict([[len(load)] for load in list_of_loads])
     return anomalous_length_indices
 
-def train_test(data_series, model_file_path):
+def train_test(anomaly_detector: typing.Anomaly_Detector, model_file_path):
+    data_list = anomaly_detector.data
+    data_series = pd.Series(data=[data_point for _, data_point in data_list], index=[timestamp for timestamp, _ in data_list])
     list_of_loads = extract_loads(data_series)
     list_of_normalized_loads = [preprocessing.normalize_data(load) for load in list_of_loads]
     anomalous_length_indices = find_anomalous_lengths(list_of_normalized_loads)
     if len(list_of_loads)-1 in anomalous_length_indices:
-        return # output 'There just was a load of anomalous length!'
+        anomaly_detector.anomalies.append((list_of_loads[-1],'length of load'))
+        return 2
     array_of_loads = padding(list_of_loads, max([len(load) for load in list_of_loads]))
     model=IsolationForest()
     model.fit(array_of_loads[-50:])
@@ -60,7 +66,8 @@ def train_test(data_series, model_file_path):
         pickle.dump(model, f)
     predictions = model.predict(array_of_loads[-50:])
     if predictions[-1] < 0:
-        return # output 'The last load was anomalous'
+        anomaly_detector.anomalies.append((list_of_loads[-1],'load'))
+        return 1
     
 
     

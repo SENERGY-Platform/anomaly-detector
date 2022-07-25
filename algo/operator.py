@@ -59,9 +59,9 @@ class Operator(util.OperatorBase):
     def test(self):
         if self.anomaly_detector.last_training_time > self.anomaly_detector.initial_time:
             if self.anomaly_detector.device_type == 'cont_device':
-                cont_device.test(self.anomaly_detector.data, self.anomaly_detector.model)
+                output = cont_device.test(self.anomaly_detector.data, self.anomaly_detector)
             elif self.anomaly_detector.device_type == 'load_device':
-                self.anomaly_detector.model = load_device.train_test(self.anomaly_detector.data, self.model_file_path)
+                output = load_device.train_test(self.anomaly_detector, self.model_file_path)
             return output
 
     def run(self, data, selector='energy_func'):
