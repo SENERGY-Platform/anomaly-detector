@@ -110,7 +110,7 @@ def prepare_batches(history_data_series, batch_length_days):
     else:
         return preprocessing.decompose_into_time_windows(history_data_series, window_length=405)
 
-def batch_training(autoencoder, history_data_series, model_file_path, batch_length_days=14, epochs=1000):
+def batch_train(autoencoder, history_data_series, model_file_path, batch_length_days=14, epochs=1000):
     normalized_history_data_series = preprocessing.normalize_data(history_data_series)
     training_batches = prepare_batches(normalized_history_data_series, batch_length_days)
     autoencoder, _ = train(autoencoder, torch.Tensor(training_batches), torch.Tensor(training_batches), epochs, use_cuda)
@@ -143,7 +143,7 @@ def get_anomalous_part(anomalous_time_window, model, short_time_length=50):
         errors.append(integrate.simpson(abs(array_of_short_parts[i]-array_of_approx_short_parts[i])).item(0))
     return array_of_short_parts[np.argmax(errors)]
 
-def run(data_series, model):
+def test(data_series, model):
     model.eval()
     data_series = preprocessing.minute_resampling(data_series)
     data_series = preprocessing.smooth_data(data_series)
@@ -152,7 +152,7 @@ def run(data_series, model):
     anomalous_reconstruction_indices = error_calculation.get_anomalous_indices(reconstruction_errors)
     if len(reconstruction_errors)-1 in anomalous_reconstruction_indices:
         # Maybe check for anomalous window part here.
-        return 'An anomaly might just have ocured!'
+        return 'An anomaly might just have occured!'
     model.train()
 
     

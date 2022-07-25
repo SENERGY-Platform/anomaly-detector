@@ -17,140 +17,65 @@
 __all__ = ("Operator", )
 
 import util
-from . import aux_functions, Agent
-from collections import deque
-import pickle
-import numpy as np
-import torch
-import torch.optim as optim
+from . import anom_detector, cont_device, load_device
+import pandas as pd
 import os
-import random
-import astral
-from astral import sun
-
+from datetime import datetime
 
 class Operator(util.OperatorBase):
-    def __init__(self, energy_src_id, weather_src_id, buffer_len='48', p_1='1', p_0='1', history_modus='daylight', power_td=0.17, weather_dim=6, data_path="data"):
+    def __init__(self, device_id, data_path):
         if not os.path.exists(data_path):
             os.mkdir(data_path)
 
-        self.observer = astral.Observer(latitude=51.34, longitude=12.38)
+        self.model_file_path = f'{data_path}/{self.device_id}_model.pt'
 
-        self.energy_src_id = energy_src_id
-        self.weather_src_id = weather_src_id
+        self.anomaly_detector = anom_detector.Anomaly_Detector(device_id)
 
-        self.weather_same_timestamp = []
-
-        self.buffer_len = int(buffer_len)
-        self.history_power_len = int(10000/float(power_td)) # power_td is the time difference between two consecutive power values
-        self.replay_buffer = deque(maxlen=self.buffer_len)
-        self.power_history = deque(maxlen=self.history_power_len) 
-        self.daylight_power_history = deque(maxlen=int(self.history_power_len/2))
-        self.history_modus = history_modus
-
-        self.p_1 = int(p_1)
-        self.p_0 = int(p_0)
+    def get_device_type(data_list):# entris in data_list are of the form (timestamp, data point)
+        data_series = pd.Series(...)
+        device_type = 'cont_device'
+        for timestamp_1 in data_series.index:
+            constantly_zero = True
+            for timestamp_2 in data_series.loc[timestamp_1:timestamp_1+pd.Timedelta(2,'hours')]:
+                if data_series.loc[timestamp_2] != 0:
+                    constantly_zero = False
+                    break
+            if constantly_zero == True:
+                device_type = 'load_device'
+                break    
+        return device_type
         
-        self.agents = deque(maxlen=4)
-        self.policy = Agent.Policy(state_size=weather_dim) # If we keep track of time, temp, humidity, uv-index, precipitation and clouds we have weather_dim=6.
-        self.optimizer = optim.Adam(self.policy.parameters(), lr=1e-2)
+    def batch_train(self, data):
+        if data['energy_time']-self.anomaly_detector.last_training_time >= pd.Timedelta(14, 'days'): 
+            if self.anomaly_detector.device_type == 'cont_device':
+                if self.anomaly_detector.last_training_time == self.anomaly_detector.initial_time:
+                    self.anomaly_detector.model = cont_device.Autoencoder(32)
+                self.anomaly_detector.model = cont_device.batch_train(self.anomaly_detector.model, self.anomaly_detector.data.loc[data['energy_time']-pd.Timedelta(14, 'days'):data['energy_time']], self.model_file_path)
+            elif self.anomaly_detector.device_type == 'load_device':
+                pass # training IsolationForest is that fast, that we can train it again with every new data point.
+            self.anomaly_detector.last_training_time = data['energy_time']
+        elif data['energy_time']-self.anomaly_detector.last_training_time < pd.Timedelta(14, 'days'):
+            pass
 
-        self.power_history_means = []
-        self.power_lists = []
-        self.actions = []
-        self.rewards = []
-        self.weather_data = []
+    def test(self):
+        if self.anomaly_detector.last_training_time > self.anomaly_detector.initial_time:
+            if self.anomaly_detector.device_type == 'cont_device':
+                cont_device.test(self.anomaly_detector.data, self.anomaly_detector.model)
+            elif self.anomaly_detector.device_type == 'load_device':
+                self.anomaly_detector.model = load_device.train_test(self.anomaly_detector.data, self.model_file_path)
+            return output
 
-        self.power_lists_file = f'{data_path}/{self.energy_src_id}_{self.weather_src_id}_power_lists_{self.p_1}_{self.p_0}_{self.history_modus}.pickle'
-        self.actions_file = f'{data_path}/{self.energy_src_id}_{self.weather_src_id}_actions_{self.p_1}_{self.p_0}_{self.history_modus}.pickle'
-        self.rewards_file = f'{data_path}/{self.energy_src_id}_{self.weather_src_id}_rewards_{self.p_1}_{self.p_0}_{self.history_modus}.pickle'
-        self.weather_file = f'{data_path}/{self.energy_src_id}_{self.weather_src_id}_weather_{self.p_1}_{self.p_0}_{self.history_modus}.pickle'
-
-        self.model_file = f'{data_path}/{self.energy_src_id}_{self.weather_src_id}_model_{self.p_1}_{self.p_0}_{self.history_modus}.pt'
-
-        #if os.path.exists(self.model_file):
-        #    self.policy.load_state_dict(torch.load(self.model_file))
-
-    def run_new_weather(self, new_weather_data):
-        new_weather_array = aux_functions.preprocess_weather_data(new_weather_data)
-        self.weather_data.append(new_weather_array)
-        new_weather_input = np.mean(new_weather_array, axis=0)
-
-        self.policy.eval()      # The current policy is used for prediction.
-        with torch.no_grad():
-            input = torch.from_numpy(new_weather_input).float().unsqueeze(0)
-            output = torch.argmax(self.policy(input)).item()
-        self.policy.train()
-
-        if len(self.agents) < 4:
-            self.agents.append(Agent.Agent())
-        elif len(self.agents) == 4:
-            oldest_agent = self.agents.popleft()
-            self.agents.append(Agent.Agent())
-            if len(self.replay_buffer)==self.buffer_len:
-                random.shuffle(self.replay_buffer)
-                for agent in self.replay_buffer:
-                    agent.action, agent.log_prob = agent.act(self.policy)
-                    if self.history_modus=='all':
-                        agent.reward = agent.get_reward(agent.action, self.p_1, self.p_0, self.power_history)
-                    elif self.history_modus=='daylight':
-                        agent.reward = agent.get_reward(agent.action, self.p_1, self.p_0, self.daylight_power_history)
-                    agent.learn(agent.reward, agent.log_prob, self.optimizer)
-
-                oldest_agent.action, oldest_agent.log_prob = oldest_agent.act(self.policy)
-                if self.history_modus=='all':
-                    oldest_agent.reward = oldest_agent.get_reward(oldest_agent.action, self.p_1, self.p_0, self.power_history)
-                elif self.history_modus=='daylight':
-                    oldest_agent.reward = oldest_agent.get_reward(oldest_agent.action, self.p_1, self.p_0, self.daylight_power_history)
-                oldest_agent.learn(oldest_agent.reward, oldest_agent.log_prob, self.optimizer)
-
-                self.power_lists.append(oldest_agent.power_list)
-                self.actions.append(oldest_agent.action)
-                self.rewards.append(oldest_agent.reward)
-            self.replay_buffer.append(oldest_agent)    
-            
-        torch.save(self.policy.state_dict(), self.model_file)
-        
-        with open(self.power_lists_file, 'wb') as f:
-            pickle.dump(self.power_lists, f)
-        with open(self.actions_file, 'wb') as f:
-            pickle.dump(self.actions, f)
-        with open(self.rewards_file, 'wb') as f:
-            pickle.dump(self.rewards, f)
-        with open(self.weather_file, 'wb') as f:
-            pickle.dump(self.weather_data, f)
-
-        newest_agent = self.agents[-1]
-        newest_agent.save_weather_data(new_weather_input)
-    
+    def run(self, data, selector='energy_func'):
+        self.anomaly_detector.data.append([data['energy_time'], data['energy']])
+        if self.anomaly_detector.first_data_time == None:
+            self.anomaly_detector.first_data_time = data['energy_time']
+        if data['energy_time'] < self.anomaly_detector.initial_time:
+            return
+        if self.anomaly_detector.device_type == None:
+            if data['energy_time']-self.anomaly_detector.first_data_time < pd.Timedelta(1, 'days'):
+                return
+            elif data['energy_time']-self.anomaly_detector.first_data_time >= pd.Timedelta(1, 'days'):
+                self.anomaly_detector.device_type = self.get_device_type(self.anomaly_detector.data)
+        self.batch_train(data)
+        output = self.test()
         return output
-
-    def run_new_power(self, new_power_data):
-        time, new_power_value = aux_functions.preprocess_power_data(new_power_data)
-
-        self.power_history.append(new_power_value)
-
-        for agent in self.agents:
-            agent.update_power_list(new_power_value)
-
-        sunrise = sun.sunrise(self.observer, date=time, tzinfo='Europe/Berlin')
-        sunset = sun.sunrise(self.observer, date=time, tzinfo='Europe/Berlin') 
-        if (sunrise<time) and (time<sunset):
-            self.daylight_power_history.append(new_power_value)
-
-    def run(self, data, selector):
-        if os.getenv("DEBUG") is not None and os.getenv("DEBUG").lower() == "true":
-            print(selector + ": " + str(data))
-        if selector == 'weather_func':
-            if self.weather_same_timestamp != []:
-                if data['weather_time'] == self.weather_same_timestamp[-1]['weather_time']:
-                    self.weather_same_timestamp.append(data)
-                elif data['weather_time'] != self.weather_same_timestamp[-1]['weather_time']:
-                    new_weather_data = self.weather_same_timestamp
-                    output = self.run_new_weather(new_weather_data)
-                    self.weather_same_timestamp = [data] 
-                    return output
-            elif self.weather_same_timestamp == []:
-                self.weather_same_timestamp.append(data)
-        elif selector == 'power_func':
-            self.run_new_power(data)

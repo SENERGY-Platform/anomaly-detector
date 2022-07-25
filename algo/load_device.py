@@ -48,7 +48,7 @@ def find_anomalous_lengths(list_of_loads):
     anomalous_length_indices = model.predict([[len(load)] for load in list_of_loads])
     return anomalous_length_indices
 
-def run(data_series, model_file_path):
+def train_test(data_series, model_file_path):
     list_of_loads = extract_loads(data_series)
     list_of_normalized_loads = [preprocessing.normalize_data(load) for load in list_of_loads]
     anomalous_length_indices = find_anomalous_lengths(list_of_normalized_loads)
