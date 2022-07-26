@@ -6,8 +6,7 @@ import numpy as np
 import scipy.integrate as integrate
 import typing
 
-import preprocessing
-import error_calculation
+from . import error_calculation, preprocessing
 
 use_cuda = torch.cuda.is_available()
 
