@@ -26,6 +26,8 @@ class Operator(util.OperatorBase):
         if not os.path.exists(data_path):
             os.mkdir(data_path)
 
+        self.device_id = device_id
+
         self.model_file_path = f'{data_path}/{self.device_id}_model.pt'
 
         self.anomaly_detector = anom_detector.Anomaly_Detector(device_id)
