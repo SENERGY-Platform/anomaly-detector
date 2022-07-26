@@ -80,6 +80,7 @@ class Operator(util.OperatorBase):
                 return
             elif datetime.fromtimestamp(data['energy_time']/1000)-self.anomaly_detector.first_data_time >= pd.Timedelta(1, 'days'):
                 self.anomaly_detector.device_type = self.get_device_type(self.anomaly_detector.data)
+                print(self.anomaly_detector.device_type)
         self.batch_train(data)
         output = self.test()
         return output
