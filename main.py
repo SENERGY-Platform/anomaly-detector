@@ -23,7 +23,7 @@ import cncr_wdg
 import signal
 
 if __name__ == '__main__':
-    util.print_init(name="pv-usecase-operator", git_info_file="git_commit")
+    util.print_init(name="anomaly-detector-operator", git_info_file="git_commit")
     dep_config = util.DeploymentConfig()
     opr_config = util.OperatorConfig(json.loads(dep_config.config))
     util.init_logger(opr_config.config.logger_level)
