@@ -8,5 +8,5 @@ kazoo<3
 astral
 datetime
 pytz
-scipy<2
-sklearn<2
+scipy
+sklearn
