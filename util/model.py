@@ -31,17 +31,9 @@ class Selector(simple_struct.Structure):
 
 
 class Config(simple_struct.Structure):
-    energy_src_id: str = None
-    weather_src_id: str = None
-    logger_level = "warning"
-    power_td: str = None
-    weather_dim = 6
+    device_id: str = None
     data_path = "/opt/data"
     selectors: typing.List[Selector] = None
-    buffer_len: str = None
-    p_1: str = None
-    p_0: str = None
-    history_modus: str = None
 
     def __init__(self, d, **kwargs):
         super().__init__(d, **kwargs)
