@@ -4,7 +4,6 @@ import torch.nn.functional as F
 import pandas as pd
 import numpy as np
 import scipy.integrate as integrate
-import typing
 
 from . import error_calculation, preprocessing
 
@@ -143,7 +142,7 @@ def get_anomalous_part(anomalous_time_window, model, short_time_length=50):
         errors.append(integrate.simpson(abs(array_of_short_parts[i]-array_of_approx_short_parts[i])).item(0))
     return array_of_short_parts[np.argmax(errors)]
 
-def test(data_series, anomaly_detector: typing.anom_detector.Anomaly_Detector, window_length=405):
+def test(data_series, anomaly_detector, window_length=405):
     anomaly_detector.model.eval()
     data_series = preprocessing.minute_resampling(data_series)
     data_series = preprocessing.smooth_data(data_series)

@@ -2,10 +2,8 @@ import numpy as np
 import pandas as pd
 from sklearn.ensemble import IsolationForest
 import pickle
-import typing
 
-from . import anom_detector, preprocessing
-from anom_detector import Anomaly_Detector
+from . import preprocessing
 
 def extract_loads(time_series):
     list_of_loads = []
@@ -50,7 +48,7 @@ def find_anomalous_lengths(list_of_loads):
     anomalous_length_indices = model.predict([[len(load)] for load in list_of_loads])
     return anomalous_length_indices
 
-def train_test(anomaly_detector: typing.Anomaly_Detector, model_file_path):
+def train_test(anomaly_detector, model_file_path):
     data_list = anomaly_detector.data
     data_series = pd.Series(data=[data_point for _, data_point in data_list], index=[timestamp for timestamp, _ in data_list])
     list_of_loads = extract_loads(data_series)
