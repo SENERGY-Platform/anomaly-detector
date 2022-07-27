@@ -35,6 +35,7 @@ class Operator(util.OperatorBase):
 
     def get_device_type(self,data_list):# entris in data_list are of the form (timestamp, data point)
         data_series = pd.Series(data=[data_point for _, data_point in data_list], index=[timestamp for timestamp, _ in data_list])
+        print(data_series)
         device_type = 'cont_device'
         for timestamp_1 in data_series.index:
             constantly_zero = True
