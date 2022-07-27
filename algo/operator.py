@@ -69,7 +69,7 @@ class Operator(util.OperatorBase):
 
     def run(self, data, selector='energy_func'):
         if os.getenv("DEBUG") is not None and os.getenv("DEBUG").lower() == "true":
-            print(selector + ": " + 'energy: '+str(data['energy'])+'  '+'time: 'str(datetime.fromtimestamp(data['energy_time']/1000)))
+            print(selector + ": " + 'energy: '+str(data['energy'])+'  '+'time: '+str(datetime.fromtimestamp(data['energy_time']/1000)))
         self.anomaly_detector.data.append([datetime.fromtimestamp(data['energy_time']/1000), data['energy']])
         if self.anomaly_detector.first_data_time == None:
             self.anomaly_detector.first_data_time = datetime.fromtimestamp(data['energy_time']/1000)
