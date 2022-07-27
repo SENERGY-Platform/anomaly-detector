@@ -39,11 +39,12 @@ class Operator(util.OperatorBase):
         device_type = 'cont_device'
         for timestamp_1 in data_series.index:
             constantly_zero = True
-            for timestamp_2 in data_series.loc[timestamp_1:timestamp_1+pd.Timedelta(2,'hours')].index:
-                if data_series.loc[timestamp_2] != 0:
-                    constantly_zero = False
-                    break
-            if constantly_zero == True:
+            if timestamp_1 + pd.Timedelta(2,'hours') < data_series.index.max():
+                for timestamp_2 in data_series.loc[timestamp_1:timestamp_1+pd.Timedelta(2,'hours')].index:
+                    if data_series.loc[timestamp_2] != 0:
+                        constantly_zero = False
+                        break
+            if constantly_zero == False:
                 device_type = 'load_device'
                 break    
         return device_type
