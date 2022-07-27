@@ -110,6 +110,7 @@ def prepare_batches(history_data_series, batch_length_days):
 
 def batch_train(autoencoder, data_list, model_file_path, batch_length_days=14, epochs=1000):
     data_series = pd.Series(data=[data_point for _, data_point in data_list], index=[timestamp for timestamp, _ in data_list]).sort_index()
+    data_series = data_series[~data_series.index.duplicated(keep='first')]
     normalized_history_data_series = preprocessing.normalize_data(data_series)
     training_batches = prepare_batches(normalized_history_data_series, batch_length_days)
     autoencoder, _ = train(autoencoder, torch.Tensor(training_batches), epochs, use_cuda)
@@ -145,6 +146,7 @@ def get_anomalous_part(anomalous_time_window, model, short_time_length=50):
 def test(data_list, anomaly_detector, window_length=405):
     anomaly_detector.model.eval()
     data_series = pd.Series(data=[data_point for _, data_point in data_list], index=[timestamp for timestamp, _ in data_list]).sort_index()
+    data_series = data_series[~data_series.index.duplicated(keep='first')]
     data_series = preprocessing.minute_resampling(data_series)
     data_series = preprocessing.smooth_data(data_series)
     data_array = preprocessing.decompose_into_time_windows(data_series, window_length)

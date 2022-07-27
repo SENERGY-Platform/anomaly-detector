@@ -34,12 +34,12 @@ class Operator(util.OperatorBase):
 
     def get_device_type(self,data_list):# entries in data_list are of the form (timestamp, data point)
         data_series = pd.Series(data=[data_point for _, data_point in data_list], index=[timestamp for timestamp, _ in data_list]).sort_index()
+        data_series = data_series[~data_series.index.duplicated(keep='first')]
         device_type = 'cont_device'
         for timestamp_1 in data_series.index:
             constantly_zero = True
             if timestamp_1 + pd.Timedelta(2,'hours') < data_series.index.max():
                 for timestamp_2 in data_series.loc[timestamp_1:timestamp_1+pd.Timedelta(2,'hours')].index:
-                    print(data_series.loc[timestamp_2])
                     if data_series.loc[timestamp_2] != 0:
                         constantly_zero = False
                         break
