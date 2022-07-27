@@ -39,7 +39,8 @@ class Operator(util.OperatorBase):
             constantly_zero = True
             if timestamp_1 + pd.Timedelta(2,'hours') < data_series.index.max():
                 for timestamp_2 in data_series.loc[timestamp_1:timestamp_1+pd.Timedelta(2,'hours')].index:
-                    if data_series.loc[timestamp_2].item() != 0:
+                    print(data_series.loc[timestamp_2])
+                    if data_series.loc[timestamp_2] != 0:
                         constantly_zero = False
                         break
                 if constantly_zero == True:
