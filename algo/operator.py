@@ -18,7 +18,6 @@ __all__ = ("Operator", )
 
 import util
 import pandas as pd
-from datetime import datetime
 import os
 from . import anom_detector, cont_device, load_device
 
@@ -33,7 +32,7 @@ class Operator(util.OperatorBase):
 
         self.anomaly_detector = anom_detector.Anomaly_Detector(device_id)
 
-    def get_device_type(self,data_list):# entris in data_list are of the form (timestamp, data point)
+    def get_device_type(self,data_list):# entries in data_list are of the form (timestamp, data point)
         data_series = pd.Series(data=[data_point for _, data_point in data_list], index=[timestamp for timestamp, _ in data_list])
         device_type = 'cont_device'
         for timestamp_1 in data_series.index:
@@ -43,21 +42,21 @@ class Operator(util.OperatorBase):
                     if data_series.loc[timestamp_2] != 0:
                         constantly_zero = False
                         break
-            if constantly_zero == False:
-                device_type = 'load_device'
-                break    
+                if constantly_zero == True:
+                    device_type = 'load_device'
+                    break    
         return device_type
         
     def batch_train(self, data):
-        if datetime.fromtimestamp(data['energy_time']/1000)-self.anomaly_detector.last_training_time >= pd.Timedelta(14, 'days'): 
+        if pd.to_datetime(data['energy_time'], unit='ms')-self.anomaly_detector.last_training_time >= pd.Timedelta(14, 'days'): 
             if self.anomaly_detector.device_type == 'cont_device':
                 if self.anomaly_detector.last_training_time == self.anomaly_detector.initial_time:
                     self.anomaly_detector.model = cont_device.Autoencoder(32)
                 self.anomaly_detector.model = cont_device.batch_train(self.anomaly_detector.model, self.anomaly_detector.data, self.model_file_path)
             elif self.anomaly_detector.device_type == 'load_device':
                 pass # training IsolationForest is that fast, that we can train it again with every new data point.
-            self.anomaly_detector.last_training_time = datetime.fromtimestamp(data['energy_time']/1000)
-        elif datetime.fromtimestamp(data['energy_time']/1000)-self.anomaly_detector.last_training_time < pd.Timedelta(14, 'days'):
+            self.anomaly_detector.last_training_time = pd.to_datetime(data['energy_time'], unit='ms')
+        elif pd.to_datetime(data['energy_time'], unit='ms')-self.anomaly_detector.last_training_time < pd.Timedelta(14, 'days'):
             pass
 
     def test(self):
@@ -70,16 +69,16 @@ class Operator(util.OperatorBase):
 
     def run(self, data, selector='energy_func'):
         if os.getenv("DEBUG") is not None and os.getenv("DEBUG").lower() == "true":
-            print(selector + ": " + 'energy: '+str(data['energy'])+'  '+'time: '+str(datetime.fromtimestamp(data['energy_time']/1000)))
-        self.anomaly_detector.data.append([datetime.fromtimestamp(data['energy_time']/1000), data['energy']])
+            print(selector + ": " + 'energy: '+str(data['energy'])+'  '+'time: '+str(pd.to_datetime(data['energy_time'], unit='ms')))
+        self.anomaly_detector.data.append([pd.to_datetime(data['energy_time'], unit='ms'), data['energy']])
         if self.anomaly_detector.first_data_time == None:
-            self.anomaly_detector.first_data_time = datetime.fromtimestamp(data['energy_time']/1000)
-        if datetime.fromtimestamp(data['energy_time']/1000) < self.anomaly_detector.initial_time:
+            self.anomaly_detector.first_data_time = pd.to_datetime(data['energy_time'], unit='ms')
+        if pd.to_datetime(data['energy_time'], unit='ms') < self.anomaly_detector.initial_time:
             return
         if self.anomaly_detector.device_type == None:
-            if datetime.fromtimestamp(data['energy_time']/1000)-self.anomaly_detector.first_data_time < pd.Timedelta(1, 'days'):
+            if pd.to_datetime(data['energy_time'], unit='ms')-self.anomaly_detector.first_data_time < pd.Timedelta(1, 'days'):
                 return
-            elif datetime.fromtimestamp(data['energy_time']/1000)-self.anomaly_detector.first_data_time >= pd.Timedelta(1, 'days'):
+            elif pd.to_datetime(data['energy_time'], unit='ms')-self.anomaly_detector.first_data_time >= pd.Timedelta(1, 'days'):
                 self.anomaly_detector.device_type = self.get_device_type(self.anomaly_detector.data)
                 print(self.anomaly_detector.device_type)
         self.batch_train(data)

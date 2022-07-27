@@ -6,7 +6,6 @@ confluent_kafka<2
 pandas<2
 kazoo<3
 astral
-datetime
 pytz
 scipy
 sklearn
