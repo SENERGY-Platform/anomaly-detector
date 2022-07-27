@@ -70,7 +70,7 @@ class Operator(util.OperatorBase):
     def run(self, data, selector='energy_func'):
         if os.getenv("DEBUG") is not None and os.getenv("DEBUG").lower() == "true":
             print(selector + ": " + 'energy: '+str(data['energy'])+'  '+'time: '+str(pd.to_datetime(data['energy_time'], unit='ms')))
-        self.anomaly_detector.data.append([pd.to_datetime(data['energy_time'], unit='ms'), data['energy']])
+        self.anomaly_detector.data.append([pd.to_datetime(data['energy_time'], unit='ms'), float(data['energy'])])
         if self.anomaly_detector.first_data_time == None:
             self.anomaly_detector.first_data_time = pd.to_datetime(data['energy_time'], unit='ms')
         if pd.to_datetime(data['energy_time'], unit='ms') < self.anomaly_detector.initial_time:
