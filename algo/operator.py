@@ -92,5 +92,5 @@ class Operator(util.OperatorBase):
         self.batch_train(data, use_cuda)
         output = self.test(use_cuda)
         with open(self.anomaly_detector_path, 'wb') as f:
-            pickle.dump(self.anomaly_detector)
+            pickle.dump(self.anomaly_detector, f)
         return output
