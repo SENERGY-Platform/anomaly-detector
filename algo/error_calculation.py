@@ -9,6 +9,7 @@ def get_anomalous_indices(list_of_errors):
     for i in range(len(list_of_errors)):
         if predictions[i]==-1 and list_of_errors[i]>median(list_of_errors):
             anomalous_indices.append(i)
+    return anomalous_indices
 
 def get_anomalous_time_windows(data_series, anomalous_indices, window_length):
     anomalous_windows = []
