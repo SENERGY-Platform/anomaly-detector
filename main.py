@@ -36,7 +36,8 @@ if __name__ == '__main__':
     kafka_consumer_config = {
         "metadata.broker.list": kafka_brokers,
         "group.id": dep_config.config_application_id,
-        "auto.offset.reset": dep_config.consumer_auto_offset_reset_config
+        "auto.offset.reset": dep_config.consumer_auto_offset_reset_config,
+        "max.poll.interval.ms": 6000000
     }
     kafka_producer_config = {
         "metadata.broker.list": kafka_brokers,
