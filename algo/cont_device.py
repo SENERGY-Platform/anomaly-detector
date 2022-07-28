@@ -108,33 +108,39 @@ def prepare_batches(history_data_series, batch_length_days):
     else:
         return preprocessing.decompose_into_time_windows(history_data_series, window_length=405)
 
-def batch_train(autoencoder, data_list, model_file_path, batch_length_days=14, epochs=1000):
+def batch_train(autoencoder, data_list, model_file_path, use_cuda, batch_length_days=14, epochs=1000):
     data_series = pd.Series(data=[data_point for _, data_point in data_list], index=[timestamp for timestamp, _ in data_list]).sort_index()
     data_series = data_series[~data_series.index.duplicated(keep='first')]
     normalized_history_data_series = preprocessing.normalize_data(data_series)
     training_batches = prepare_batches(normalized_history_data_series, batch_length_days)
-    autoencoder, _ = train(autoencoder, torch.Tensor(training_batches), epochs, use_cuda)
+    autoencoder, average_tr_loss_per_epoch_list = train(autoencoder, torch.Tensor(training_batches), epochs, use_cuda)
     torch.save(autoencoder.state_dict(), model_file_path)
     return autoencoder
 
-def get_errors(data_array, model): # How do we handle cuda in the code?
+def get_errors(data_array, model, use_cuda):
     errors = []
     model.eval()
     for data_series in data_array:
-        x = model(torch.Tensor(data_series).cuda())
-        errors.append(integrate.simpson(abs(x.detach().cpu().numpy()-data_series)).item(0))
+        model_input = torch.Tensor(data_series)
+        if use_cuda:
+            model_input = model_input.cuda()
+        model_output = model(model_input)
+        errors.append(integrate.simpson(abs(model_output.detach().cpu().numpy()-data_series)).item(0))
     model.train()
     return errors
 
-def get_anomalous_part(anomalous_time_window, model, short_time_length=50):
+def get_anomalous_part(anomalous_time_window, model, use_cuda, short_time_length=50):
     array_of_short_parts = []
     array_of_approx_short_parts = []
 
     for start in range(0,len(anomalous_time_window),short_time_length):
         if i+short_time_length <= 405:
             array_of_short_parts.append(anomalous_time_window[start:start+short_time_length])
-            approx_time_window = model(torch.Tensor(anomalous_time_window).cuda()).detach().cpu().numpy()
-            array_of_approx_short_parts.append(approx_time_window [0,start:start+short_time_length])
+            if use_cuda:
+                approx_time_window = model(torch.Tensor(anomalous_time_window).cuda()).detach().cpu().numpy()
+            else:
+                approx_time_window = model(torch.Tensor(anomalous_time_window)).detach().cpu().numpy()
+            array_of_approx_short_parts.append(approx_time_window[0,start:start+short_time_length])
     array_of_short_parts = np.array(array_of_short_parts)
     array_of_approx_short_parts = np.array(array_of_approx_short_parts)
 
@@ -143,18 +149,18 @@ def get_anomalous_part(anomalous_time_window, model, short_time_length=50):
         errors.append(integrate.simpson(abs(array_of_short_parts[i]-array_of_approx_short_parts[i])).item(0))
     return array_of_short_parts[np.argmax(errors)]
 
-def test(data_list, anomaly_detector, window_length=405):
+def test(data_list, anomaly_detector, use_cuda, window_length=405):
     anomaly_detector.model.eval()
     data_series = pd.Series(data=[data_point for _, data_point in data_list], index=[timestamp for timestamp, _ in data_list]).sort_index()
     data_series = data_series[~data_series.index.duplicated(keep='first')]
     data_series = preprocessing.minute_resampling(data_series)
     data_series = preprocessing.smooth_data(data_series)
     data_array = preprocessing.decompose_into_time_windows(data_series, window_length)
-    reconstruction_errors = get_errors(data_array, anomaly_detector.model)
+    reconstruction_errors = get_errors(data_array, anomaly_detector.model, use_cuda)
     anomalous_reconstruction_indices = error_calculation.get_anomalous_indices(reconstruction_errors)
     if len(reconstruction_errors)-1 in anomalous_reconstruction_indices:
         anomalous_time_window = data_series.iloc[(len(reconstruction_errors)-1)*window_length:len(reconstruction_errors)*window_length]
-        anomaly_detector.anomalies.append((anomalous_time_window,get_anomalous_part(anomalous_time_window, anomaly_detector.model, short_time_length = 50)))
+        anomaly_detector.anomalies.append((anomalous_time_window,get_anomalous_part(anomalous_time_window, anomaly_detector.model, use_cuda, short_time_length = 50)))
         return 1
     anomaly_detector.model.train()
 

@@ -17,6 +17,7 @@
 __all__ = ("Operator", )
 
 import util
+import torch
 import pandas as pd
 import os
 from . import anom_detector, cont_device, load_device
@@ -48,22 +49,24 @@ class Operator(util.OperatorBase):
                     break    
         return device_type
         
-    def batch_train(self, data):
+    def batch_train(self, data, use_cuda):
         if pd.to_datetime(data['energy_time'], unit='ms')-self.anomaly_detector.last_training_time >= pd.Timedelta(14, 'days'): 
             if self.anomaly_detector.device_type == 'cont_device':
                 if self.anomaly_detector.last_training_time == self.anomaly_detector.initial_time:
                     self.anomaly_detector.model = cont_device.Autoencoder(32)
-                self.anomaly_detector.model = cont_device.batch_train(self.anomaly_detector.model, self.anomaly_detector.data, self.model_file_path)
+                    if use_cuda:
+                        self.anomaly_detector.model = self.anomaly_detector.model.cuda()
+                self.anomaly_detector.model = cont_device.batch_train(self.anomaly_detector.model, self.anomaly_detector.data, self.model_file_path, use_cuda)
             elif self.anomaly_detector.device_type == 'load_device':
                 pass # training IsolationForest is that fast, that we can train it again with every new data point.
             self.anomaly_detector.last_training_time = pd.to_datetime(data['energy_time'], unit='ms')
         elif pd.to_datetime(data['energy_time'], unit='ms')-self.anomaly_detector.last_training_time < pd.Timedelta(14, 'days'):
             pass
 
-    def test(self):
+    def test(self, use_cuda):
         if self.anomaly_detector.last_training_time > self.anomaly_detector.initial_time:
             if self.anomaly_detector.device_type == 'cont_device':
-                output = cont_device.test(self.anomaly_detector.data, self.anomaly_detector)
+                output = cont_device.test(self.anomaly_detector.data, self.anomaly_detector, use_cuda)
             elif self.anomaly_detector.device_type == 'load_device':
                 output = load_device.train_test(self.anomaly_detector, self.model_file_path)
             return output
@@ -83,6 +86,7 @@ class Operator(util.OperatorBase):
             elif pd.to_datetime(data['energy_time'], unit='ms')-self.anomaly_detector.first_data_time >= pd.Timedelta(1, 'days'):
                 self.anomaly_detector.device_type = self.get_device_type(self.anomaly_detector.data)
                 print(self.anomaly_detector.device_type)
-        self.batch_train(data)
-        output = self.test()
+        use_cuda = torch.cuda.is_available()
+        self.batch_train(data, use_cuda)
+        output = self.test(use_cuda)
         return output
