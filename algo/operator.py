@@ -20,6 +20,7 @@ import util
 import torch
 import pandas as pd
 import os
+import pickle
 from . import anom_detector, cont_device, load_device
 
 class Operator(util.OperatorBase):
@@ -30,6 +31,7 @@ class Operator(util.OperatorBase):
         self.device_id = device_id
 
         self.model_file_path = f'{data_path}/{self.device_id}_model.pt'
+        self.anomaly_detector_path = f'{data_path}/{self.device_id}_anomaly_detector.pickle'
 
         self.anomaly_detector = anom_detector.Anomaly_Detector(device_id)
 
@@ -89,4 +91,6 @@ class Operator(util.OperatorBase):
         use_cuda = torch.cuda.is_available()
         self.batch_train(data, use_cuda)
         output = self.test(use_cuda)
+        with open(self.anomaly_detector_path, 'wb') as f:
+            pickle.dump(self.anomaly_detector)
         return output
