@@ -4,6 +4,7 @@ import torch.nn.functional as F
 import pandas as pd
 import numpy as np
 import scipy.integrate as integrate
+import pickle
 
 from . import error_calculation, preprocessing
 
@@ -108,12 +109,15 @@ def prepare_batches(history_data_series, batch_length_days):
     else:
         return preprocessing.decompose_into_time_windows(history_data_series, window_length=405)
 
-def batch_train(autoencoder, data_list, model_file_path, use_cuda, batch_length_days=14, epochs=1000):
+def batch_train(anomaly_detector, model_file_path, use_cuda, batch_length_days=14, epochs=1000):
+    autoencoder = anomaly_detector.model
+    data_list = anomaly_detector.data
     data_series = pd.Series(data=[data_point for _, data_point in data_list], index=[timestamp for timestamp, _ in data_list]).sort_index()
     data_series = data_series[~data_series.index.duplicated(keep='first')]
     normalized_history_data_series = preprocessing.normalize_data(data_series)
     training_batches = prepare_batches(normalized_history_data_series, batch_length_days)
     autoencoder, average_tr_loss_per_epoch_list = train(autoencoder, torch.Tensor(training_batches), epochs, use_cuda)
+    anomaly_detector.training_performance.append(average_tr_loss_per_epoch_list)
     torch.save(autoencoder.state_dict(), model_file_path)
     return autoencoder
 

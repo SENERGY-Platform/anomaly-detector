@@ -56,7 +56,7 @@ class Operator(util.OperatorBase):
                     self.anomaly_detector.model = cont_device.Autoencoder(32)
                     if use_cuda:
                         self.anomaly_detector.model = self.anomaly_detector.model.cuda()
-                self.anomaly_detector.model = cont_device.batch_train(self.anomaly_detector.model, self.anomaly_detector.data, self.model_file_path, use_cuda)
+                self.anomaly_detector.model = cont_device.batch_train(self.anomaly_detector, self.model_file_path, use_cuda)
             elif self.anomaly_detector.device_type == 'load_device':
                 pass # training IsolationForest is that fast, that we can train it again with every new data point.
             self.anomaly_detector.last_training_time = pd.to_datetime(data['energy_time'], unit='ms')

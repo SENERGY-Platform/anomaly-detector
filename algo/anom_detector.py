@@ -10,6 +10,7 @@ class Anomaly_Detector:
         self.device_type = None
         self.model = None
         self.anomalies = []
+        self.training_performance = []
 
         
 
