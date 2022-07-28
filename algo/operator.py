@@ -74,6 +74,7 @@ class Operator(util.OperatorBase):
         self.anomaly_detector.data.append([pd.to_datetime(data['energy_time'], unit='ms'), float(data['energy'])])
         if self.anomaly_detector.first_data_time == None:
             self.anomaly_detector.first_data_time = pd.to_datetime(data['energy_time'], unit='ms')
+            self.anomaly_detector.last_training_time = self.anomaly_detector.first_data_time
         if pd.to_datetime(data['energy_time'], unit='ms') < self.anomaly_detector.initial_time:
             return
         if self.anomaly_detector.device_type == None:

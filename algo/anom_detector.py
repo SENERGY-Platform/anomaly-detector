@@ -5,7 +5,7 @@ class Anomaly_Detector:
         self.data = []
         self.initial_time = pd.Timestamp.now()
         self.first_data_time = None
-        self.last_training_time = self.initial_time
+        self.last_training_time = None
         self.device_id = device_id
         self.device_type = None
         self.model = None
