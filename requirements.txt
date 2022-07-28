@@ -9,4 +9,4 @@ astral
 pytz
 scipy
 sklearn
-enlighten
+tqdm

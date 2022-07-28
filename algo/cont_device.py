@@ -4,7 +4,7 @@ import torch.nn.functional as F
 import pandas as pd
 import numpy as np
 import scipy.integrate as integrate
-import enlighten
+import tqdm
 
 from . import error_calculation, preprocessing
 
@@ -69,8 +69,7 @@ def train(autoencoder, tr_data, epochs, use_cuda):
     opt = torch.optim.Adam(autoencoder.parameters(), lr=0.0001)
     average_tr_loss_per_epoch_list = []
     #average_val_loss_per_epoch_list = []
-    pbar = enlighten.Counter(total=epochs, desc='Basic', unit='ticks')
-    for _ in range(epochs):
+    for _ in tqdm(range(epochs)):
         list_of_tr_losses = []
         for x in tr_data:
             if use_cuda:
@@ -84,8 +83,6 @@ def train(autoencoder, tr_data, epochs, use_cuda):
             
         average_tr_loss_per_epoch = np.mean([loss.detach().cpu().numpy() for loss in list_of_tr_losses])
         average_tr_loss_per_epoch_list.append(average_tr_loss_per_epoch)
-
-        pbar.update()
             
         #autoencoder.eval()
         #for x in val_data:
