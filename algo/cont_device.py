@@ -69,7 +69,7 @@ def train(autoencoder, tr_data, epochs, use_cuda):
     opt = torch.optim.Adam(autoencoder.parameters(), lr=0.0001)
     average_tr_loss_per_epoch_list = []
     #average_val_loss_per_epoch_list = []
-    for _ in tqdm(range(epochs)):
+    for _ in tqdm(range(epochs),position=0, leave=True):
         list_of_tr_losses = []
         for x in tr_data:
             if use_cuda:
