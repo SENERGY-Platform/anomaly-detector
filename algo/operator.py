@@ -54,7 +54,7 @@ class Operator(util.OperatorBase):
     def batch_train(self, data, use_cuda):
         if pd.to_datetime(data['energy_time'], unit='ms')-self.anomaly_detector.last_training_time >= pd.Timedelta(14, 'days'): 
             if self.anomaly_detector.device_type == 'cont_device':
-                if self.anomaly_detector.last_training_time == self.anomaly_detector.initial_time:
+                if self.anomaly_detector.last_training_time == None:
                     self.anomaly_detector.model = cont_device.Autoencoder(32)
                     if use_cuda:
                         self.anomaly_detector.model = self.anomaly_detector.model.cuda()
