@@ -169,6 +169,7 @@ def test(data_list, anomaly_detector, use_cuda, window_length=405):
         anomalous_time_window = data_series.iloc[(len(reconstruction_errors)-1)*window_length:len(reconstruction_errors)*window_length]
         anomaly_detector.anomalies.append((anomalous_time_window,get_anomalous_part(anomalous_time_window, anomaly_detector.model, use_cuda, short_time_length = 50)))
         print('An anomaly has just occured!')
+        anomaly_detector.model.train()
         return 1
     anomaly_detector.model.train()
 
