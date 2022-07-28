@@ -100,7 +100,7 @@ def train(autoencoder, tr_data, epochs, use_cuda):
             
 
 def prepare_batches(history_data_series, batch_length_days):
-    if history_data_series.Index.max-history_data_series.Index.min > pd.Timedelta(batch_length_days,'d'):
+    if history_data_series.index.max()-history_data_series.index.min() > pd.Timedelta(batch_length_days,'d'):
         data_set_tr = preprocessing.minute_resampling(history_data_series)
         data_set_tr = data_set_tr.loc[-pd.Timedelta(batch_length_days,'days'):]
         data_set_tr = preprocessing.smooth_data(data_set_tr)
