@@ -157,6 +157,7 @@ def test(data_list, anomaly_detector, use_cuda, window_length=405):
     anomaly_detector.model.eval()
     data_series = pd.Series(data=[data_point for _, data_point in data_list], index=[timestamp for timestamp, _ in data_list]).sort_index()
     data_series = data_series[~data_series.index.duplicated(keep='first')]
+    data_series = preprocessing.normalize_data(data_series)
     data_series = preprocessing.minute_resampling(data_series)
     data_series = preprocessing.smooth_data(data_series)
     data_array = preprocessing.decompose_into_time_windows(data_series, window_length)
