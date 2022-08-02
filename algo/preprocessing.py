@@ -15,7 +15,7 @@ def smooth_data(data_series):
 def decompose_into_time_windows(data_series, window_length=405):
     data_matrix = []
     for i in range(len(data_series), 0, -window_length):
-        if i+window_length <= len(data_series):
-            data_matrix.append(data_series[i:i+window_length])
+        if i-window_length >= 0:
+            data_matrix.append(data_series[i-window_length:i])
             data_matrix.reverse()
     return np.array(data_matrix)
