@@ -112,7 +112,7 @@ def prepare_batches(history_data_series, batch_length_days):
 def batch_train(anomaly_detector, model_file_path, use_cuda, batch_length_days=14, epochs=1000):
     autoencoder = anomaly_detector.model
     data_list = anomaly_detector.data
-    data_series = pd.Series(data=[data_point for _, data_point in data_list], index=[timestamp for timestamp, _ in data_list]).sort_index()
+    data_series = pd.Series(data=[data_point for _, data_point in data_list], index=[timestamp.replace(microsecond=0) for timestamp, _ in data_list]).sort_index()
     data_series = data_series[~data_series.index.duplicated(keep='first')]
     normalized_history_data_series = preprocessing.normalize_data(data_series)
     training_batches = prepare_batches(normalized_history_data_series, batch_length_days)
@@ -155,7 +155,7 @@ def get_anomalous_part(anomalous_time_window, model, use_cuda, short_time_length
 
 def test(data_list, anomaly_detector, use_cuda, window_length=405):
     anomaly_detector.model.eval()
-    data_series = pd.Series(data=[data_point for _, data_point in data_list], index=[timestamp for timestamp, _ in data_list]).sort_index()
+    data_series = pd.Series(data=[data_point for _, data_point in data_list], index=[timestamp.replace(microsecond=0) for timestamp, _ in data_list]).sort_index()
     data_series = data_series[~data_series.index.duplicated(keep='first')]
     data_series = preprocessing.normalize_data(data_series)
     data_series = preprocessing.minute_resampling(data_series)
