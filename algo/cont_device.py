@@ -39,7 +39,7 @@ class Decoder(nn.Module):
         self.convt1 = nn.ConvTranspose1d(32, 16, kernel_size=10, stride=5)
         self.convt2 = nn.ConvTranspose1d(16, 1, kernel_size=10, stride=5)
         
-        self.dropout = nn.Dropout(p=0.5)
+        self.dropout = nn.Dropout(p=0.4)
         
 
     def forward(self, z):
