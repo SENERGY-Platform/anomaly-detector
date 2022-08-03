@@ -9,7 +9,7 @@ def minute_resampling(data_series):
     return resampled_data_series
 
 def smooth_data(data_series):
-    data_series_hat = savgol_filter(data_series, 55, 2)
+    data_series_hat = savgol_filter(data_series, 75, 2)
     return data_series_hat
 
 def decompose_into_time_windows(data_series, window_length=405):
