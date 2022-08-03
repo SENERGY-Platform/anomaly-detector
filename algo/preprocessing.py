@@ -17,5 +17,5 @@ def decompose_into_time_windows(data_series, window_length=405):
     for i in range(len(data_series), 0, -window_length):
         if i-window_length >= 0:
             data_matrix.append(data_series[i-window_length:i])
-            data_matrix.reverse()
+    data_matrix.reverse()
     return np.array(data_matrix)
