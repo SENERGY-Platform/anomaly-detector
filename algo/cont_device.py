@@ -138,7 +138,7 @@ def get_anomalous_part(anomalous_time_window, model, use_cuda, short_time_length
     array_of_approx_short_parts = []
 
     for start in range(0,len(anomalous_time_window),short_time_length):
-        if i+short_time_length <= 405:
+        if start+short_time_length <= 405:
             array_of_short_parts.append(anomalous_time_window[start:start+short_time_length])
             if use_cuda:
                 approx_time_window = model(torch.Tensor(anomalous_time_window).cuda()).detach().cpu().numpy()
