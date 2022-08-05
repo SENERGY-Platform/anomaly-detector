@@ -164,8 +164,7 @@ def test(data_list, anomaly_detector, use_cuda, window_length=405):
     reconstruction_errors = get_errors(data_array, anomaly_detector.model, use_cuda)
     anomalous_reconstruction_indices = error_calculation.get_anomalous_indices(reconstruction_errors)
     if len(reconstruction_errors)-1 in anomalous_reconstruction_indices:
-        rest = len(data_series)%window_length
-        anomalous_time_window = data_series[(rest+len(reconstruction_errors)-1)*window_length:rest+len(reconstruction_errors)*window_length]
+        anomalous_time_window = data_series[-window_length:]
         anomaly_detector.anomalies.append((anomalous_time_window,get_anomalous_part(anomalous_time_window, anomaly_detector.model, use_cuda, short_time_length = 50)))
         print('An anomaly has just occurred!')
         anomaly_detector.model.train()
