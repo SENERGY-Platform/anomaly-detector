@@ -4,6 +4,7 @@ import torch.nn.functional as F
 import pandas as pd
 import numpy as np
 import scipy.integrate as integrate
+import similaritymeasures
 from tqdm import tqdm
 
 from . import error_calculation, preprocessing

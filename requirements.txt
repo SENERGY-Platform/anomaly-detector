@@ -10,3 +10,4 @@ pytz
 scipy
 sklearn
 tqdm
+similaritymeasures
