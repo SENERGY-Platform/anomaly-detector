@@ -175,8 +175,8 @@ def test(data_list, anomaly_detector, use_cuda, window_length=405):
     data_series = data_series[~data_series.index.duplicated(keep='first')]
     data_series = preprocessing.normalize_data(data_series)
     data_series = preprocessing.minute_resampling(data_series)
-    data_series = preprocessing.smooth_data(data_series)
-    data_array = preprocessing.decompose_into_time_windows(data_series, window_length)
+    data_series_smooth = preprocessing.smooth_data(data_series)
+    data_array = preprocessing.decompose_into_time_windows(data_series_smooth, window_length)
     reconstruction_area_errors = get_area_errors(data_array, anomaly_detector.model, use_cuda)
     reconstruction_curve_length_measure_errors = get_curve_length_measure_errors(data_array, anomaly_detector.model, use_cuda)
     reconstruction_dtw_errors = get_dtw_errors(data_array, anomaly_detector.model, use_cuda)
@@ -185,7 +185,10 @@ def test(data_list, anomaly_detector, use_cuda, window_length=405):
                                           +error_calculation.get_anomalous_indices(reconstruction_dtw_errors))
     if data_array.shape[0]-1 in anomalous_reconstruction_indices:
         anomalous_time_window = data_series[-window_length:]
-        anomaly_detector.anomalies.append((anomalous_time_window,get_anomalous_part(anomalous_time_window, anomaly_detector.model, use_cuda, short_time_length = 50)))
+        anomalous_time_window_smooth = data_series_smooth[-window_length:]
+        anomaly_detector.anomalies.append((anomalous_time_window,
+                                           anomalous_time_window_smooth,
+                                           get_anomalous_part(anomalous_time_window_smooth, anomaly_detector.model, use_cuda, short_time_length = 50)))
         print('An anomaly has just occurred!')
         anomaly_detector.model.train()
         return 1
