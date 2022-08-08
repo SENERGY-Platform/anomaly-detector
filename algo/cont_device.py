@@ -107,7 +107,7 @@ def batch_train(anomaly_detector, model_file_path, use_cuda, batch_length_days=5
     torch.save(autoencoder.state_dict(), model_file_path)
     return autoencoder
 
-def get_errors(data_array, model, use_cuda):
+def get_area_errors(data_array, model, use_cuda):
     errors = []
     model.eval()
     for data_series in data_array:
@@ -115,7 +115,37 @@ def get_errors(data_array, model, use_cuda):
         if use_cuda:
             model_input = model_input.cuda()
         model_output = model(model_input)
-        errors.append(integrate.simpson(abs(model_output.detach().cpu().numpy()-data_series)).item(0))
+        errors.append(integrate.simpson(abs(np.squeeze(model_output.detach().cpu().numpy())-data_series)).item(0))
+    model.train()
+    return errors
+
+def get_curve_length_measure_errors(data_array, model, use_cuda):
+    errors = []
+    model.eval()
+    for data_series in data_array:
+        model_input = torch.Tensor(data_series)
+        if use_cuda:
+            model_input = model_input.cuda()
+        model_output = model(model_input)
+        x = np.linspace(0,len(data_series)-1,len(data_series))
+        y_1 = np.squeeze(model_output.detach().cpu().numpy())
+        y_2 = data_series
+        errors.append(similaritymeasures.curve_length_measure(np.column_stack((x,y_1)), np.column_stack((x,y_2))))
+    model.train()
+    return errors
+
+def get_dtw_errors(data_array, model, use_cuda):
+    errors = []
+    model.eval()
+    for data_series in data_array:
+        model_input = torch.Tensor(data_series)
+        if use_cuda:
+            model_input = model_input.cuda()
+        model_output = model(model_input)
+        x = np.linspace(0,len(data_series)-1,len(data_series))
+        y_1 = np.squeeze(model_output.detach().cpu().numpy())
+        y_2 = data_series
+        errors.append(similaritymeasures.dtw(np.column_stack((x,y_1)), np.column_stack((x,y_2)), metric='canberra')[0])
     model.train()
     return errors
 
@@ -147,9 +177,13 @@ def test(data_list, anomaly_detector, use_cuda, window_length=405):
     data_series = preprocessing.minute_resampling(data_series)
     data_series = preprocessing.smooth_data(data_series)
     data_array = preprocessing.decompose_into_time_windows(data_series, window_length)
-    reconstruction_errors = get_errors(data_array, anomaly_detector.model, use_cuda)
-    anomalous_reconstruction_indices = error_calculation.get_anomalous_indices(reconstruction_errors)
-    if len(reconstruction_errors)-1 in anomalous_reconstruction_indices:
+    reconstruction_area_errors = get_area_errors(data_array, anomaly_detector.model, use_cuda)
+    reconstruction_curve_length_measure_errors = get_curve_length_measure_errors(data_array, anomaly_detector.model, use_cuda)
+    reconstruction_dtw_errors = get_dtw_errors(data_array, anomaly_detector.model, use_cuda)
+    anomalous_reconstruction_indices = set(error_calculation.get_anomalous_indices(reconstruction_area_errors)
+                                          +error_calculation.get_anomalous_indices(reconstruction_curve_length_measure_errors)
+                                          +error_calculation.get_anomalous_indices(reconstruction_dtw_errors))
+    if data_array.shape[0]-1 in anomalous_reconstruction_indices:
         anomalous_time_window = data_series[-window_length:]
         anomaly_detector.anomalies.append((anomalous_time_window,get_anomalous_part(anomalous_time_window, anomaly_detector.model, use_cuda, short_time_length = 50)))
         print('An anomaly has just occurred!')
