@@ -120,7 +120,8 @@ def hash_dict(obj: typing.Dict) -> str:
 def gen_filter(input_topic, pipeline_id: str, selectors=None):
     filter = {
         "source": input_topic.name,
-        "mappings": {f"{m.dest}:data": m.source for m in input_topic.mappings},
+        "mappings": {f"{m.dest}:data": ("analytics." if input_topic.filterType == "OperatorId" else "") + m.source for m
+                     in input_topic.mappings},
         "identifiers": gen_identifiers(name=input_topic.name, f_type=input_topic.filterType,
                                        f_value=input_topic.filterValue, pipeline_id=pipeline_id),
         "args": {

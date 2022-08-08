@@ -26,7 +26,7 @@ class TestOperator(unittest.TestCase):
         mock_operator.init(
             kafka_consumer=mock_kafka_consumer,
             kafka_producer=MockKafkaProducer(mock_result),
-            filter_handler=init_filter_handler(mock_opr_config),
+            filter_handler=init_filter_handler(mock_opr_config, "test_pipeline"),
             output_topic="test_topic",
             pipeline_id="test_pipeline",
             operator_id="test_operator"
@@ -42,7 +42,7 @@ class TestOperator(unittest.TestCase):
             operator.init(
                 kafka_consumer=None,
                 kafka_producer=None,
-                filter_handler=init_filter_handler(opr_config),
+                filter_handler=init_filter_handler(opr_config, None),
                 output_topic=None,
                 pipeline_id=None,
                 operator_id=None

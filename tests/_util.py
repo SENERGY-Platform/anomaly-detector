@@ -33,12 +33,12 @@ with open("tests/resources/mock_result.json") as file:
     mock_result = json.load(file)
 
 
-def init_filter_handler(opr_config):
+def init_filter_handler(opr_config, pipeline_id: str):
     if not isinstance(opr_config, util.OperatorConfig):
         opr_config = util.OperatorConfig(opr_config)
     filter_handler = mf_lib.FilterHandler()
     for it in opr_config.inputTopics:
-        filter_handler.add_filter(util.gen_filter(input_topic=it, selectors=opr_config.config.selectors))
+        filter_handler.add_filter(util.gen_filter(input_topic=it, selectors=opr_config.config.selectors, pipeline_id=pipeline_id))
     return filter_handler
 
 

@@ -39,6 +39,25 @@
           "source": "data.time"
         }
       ]
+    },
+    {
+      "name": "operator_1",
+      "filterType": "OperatorId",
+      "filterValue": "pipe1:operator1",
+      "mappings": [
+        {
+          "dest": "a",
+          "source": "data.val_a"
+        },
+        {
+          "dest": "b",
+          "source": "data.val_b"
+        },
+        {
+          "dest": "timestamp",
+          "source": "data.time"
+        }
+      ]
     }
   ]
 }
