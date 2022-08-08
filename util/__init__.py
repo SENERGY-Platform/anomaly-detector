@@ -58,7 +58,7 @@ def get_kafka_brokers(zk_hosts: str, zk_path: str):
     return brokers
 
 
-def gen_identifiers(name: str, f_type: str, f_value: str):
+def gen_identifiers(name: str, f_type: str, f_value: str, pipeline_id: str):
     if f_type == "DeviceId":
         return [
             {
@@ -71,7 +71,11 @@ def gen_identifiers(name: str, f_type: str, f_value: str):
             }
         ]
     elif f_type == "OperatorId":
-        o_id, p_id = f_value.split(":")
+        if f_value.find(":") != -1:
+            o_id, p_id = f_value.split(":")
+        else:
+            o_id = f_value
+            p_id = pipeline_id
         return [
             {
                 "key": "operator_id",
@@ -113,11 +117,12 @@ def hash_dict(obj: typing.Dict) -> str:
     return hash_list(items)
 
 
-def gen_filter(input_topic, selectors=None):
+def gen_filter(input_topic, pipeline_id: str, selectors=None):
     filter = {
         "source": input_topic.name,
         "mappings": {f"{m.dest}:data": m.source for m in input_topic.mappings},
-        "identifiers": gen_identifiers(name=input_topic.name, f_type=input_topic.filterType, f_value=input_topic.filterValue),
+        "identifiers": gen_identifiers(name=input_topic.name, f_type=input_topic.filterType,
+                                       f_value=input_topic.filterValue, pipeline_id=pipeline_id),
         "args": {
             "selector": get_selector(mappings=input_topic.mappings, selectors=selectors) if selectors else None
         }
