@@ -68,12 +68,11 @@ def train(autoencoder, tr_data, epochs, use_cuda):
         autoencoder = autoencoder.cuda()
     opt = torch.optim.Adam(autoencoder.parameters(), lr=0.0001)
     average_tr_loss_per_epoch_list = []
-    #average_val_loss_per_epoch_list = []
     for _ in tqdm(range(epochs)):
         list_of_tr_losses = []
         for x in tr_data:
             if use_cuda:
-                x = x.cuda() # GPU
+                x = x.cuda()
             opt.zero_grad()
             x_hat = autoencoder(x)
             tr_loss = ((x - x_hat)**2).sum()
@@ -84,20 +83,7 @@ def train(autoencoder, tr_data, epochs, use_cuda):
         average_tr_loss_per_epoch = np.mean([loss.detach().cpu().numpy() for loss in list_of_tr_losses])
         average_tr_loss_per_epoch_list.append(average_tr_loss_per_epoch)
             
-        #autoencoder.eval()
-        #for x in val_data:
-            #if use_cuda:
-                #x = x.cuda()
-            #with torch.no_grad():
-                #x_hat = autoencoder(x)
-                #val_loss = ((x-x_hat)**2).sum()
-                #list_of_val_losses.append(val_loss)
-        
-        #average_val_loss_per_epoch = np.mean([loss.cpu().numpy() for loss in list_of_val_losses])
-        #average_val_loss_per_epoch_list.append(average_val_loss_per_epoch)
-        
-        #autoencoder.train()
-    return autoencoder, average_tr_loss_per_epoch_list#, average_val_loss_per_epoch_list    
+    return autoencoder, average_tr_loss_per_epoch_list   
             
 
 def prepare_batches(history_data_series, batch_length_days):
