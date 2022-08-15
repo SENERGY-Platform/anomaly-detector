@@ -15,19 +15,19 @@ use_cuda = torch.cuda.is_available()
 class Encoder(nn.Module):
     def __init__(self, latent_dims):
         super().__init__()
-        self.conv1 = nn.Conv1d(1, 16, 10, stride=5) # Size of each channel: 405/5-1=80
-        self.conv2 = nn.Conv1d(16, 32, 10, stride=5)# Size of each channel: 80/5-1=15
+        self.conv1 = nn.Conv1d(1, 16, 5, stride=2) # Size of each channel: (101-5)/2+1=49
+        self.conv2 = nn.Conv1d(16, 32, 5, stride=2)# Size of each channel: (49-5)/2+1=23
         
-        self.fc1 = nn.Linear(480, latent_dims)
+        self.fc1 = nn.Linear(736, latent_dims)
         
         self.dropout = nn.Dropout(p=0.6)
 
     def forward(self, x):
-        x = x.view(1,1,405)
+        x = x.view(1,1,101)
         x = F.relu(self.dropout(self.conv1(x)))
         x = F.relu(self.dropout(self.conv2(x)))
         
-        x = x.view(-1,480)
+        x = x.view(-1,736)
         
         x = self.fc1(x)
         
@@ -36,9 +36,9 @@ class Encoder(nn.Module):
 class Decoder(nn.Module):
     def __init__(self, latent_dims):
         super().__init__()
-        self.fc1 = nn.Linear(latent_dims, 480)
-        self.convt1 = nn.ConvTranspose1d(32, 16, kernel_size=10, stride=5)
-        self.convt2 = nn.ConvTranspose1d(16, 1, kernel_size=10, stride=5)
+        self.fc1 = nn.Linear(latent_dims, 736)
+        self.convt1 = nn.ConvTranspose1d(32, 16, kernel_size=5, stride=2)
+        self.convt2 = nn.ConvTranspose1d(16, 1, kernel_size=5, stride=2)
         
         self.dropout = nn.Dropout(p=0.4)
         
@@ -46,10 +46,10 @@ class Decoder(nn.Module):
     def forward(self, z):
         z = F.relu(self.dropout(self.fc1(z)))
         
-        z = z.view(-1,32,15)
+        z = z.view(-1,32,23)
         z = F.relu(self.convt1(z))
         z = self.convt2(z)
-        z = z.view(-1,405)
+        z = z.view(-1,101)
         
         return z
 
@@ -92,9 +92,9 @@ def prepare_batches(history_data_series, batch_length_days):
         data_set_tr = preprocessing.minute_resampling(history_data_series)
         data_set_tr = data_set_tr.loc[history_data_series.index.max()-pd.Timedelta(batch_length_days,'days'):]
         data_set_tr = preprocessing.smooth_data(data_set_tr)
-        return preprocessing.decompose_into_time_windows(data_set_tr, window_length=405)
+        return preprocessing.decompose_into_time_windows(data_set_tr, window_length=101)
     else:
-        return preprocessing.decompose_into_time_windows(history_data_series, window_length=405)
+        return preprocessing.decompose_into_time_windows(history_data_series, window_length=101)
 
 def batch_train(anomaly_detector, model_file_path, use_cuda, batch_length_days=50, epochs=500):
     autoencoder = anomaly_detector.model
@@ -170,7 +170,7 @@ def get_anomalous_part(anomalous_time_window, model, use_cuda, short_time_length
         errors.append(integrate.simpson(abs(array_of_short_parts[i]-array_of_approx_short_parts[i])).item(0))
     return array_of_short_parts[np.argmax(errors)]
 
-def test(data_list, anomaly_detector, use_cuda, window_length=405):
+def test(data_list, anomaly_detector, use_cuda, window_length=101):
     anomaly_detector.model.eval()
     data_series = pd.Series(data=[data_point for _, data_point in data_list], index=[timestamp.replace(microsecond=0) for timestamp, _ in data_list]).sort_index()
     data_series = data_series[~data_series.index.duplicated(keep='first')]
