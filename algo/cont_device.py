@@ -85,16 +85,16 @@ def train(autoencoder, tr_data, epochs, use_cuda):
         average_tr_loss_per_epoch_list.append(average_tr_loss_per_epoch)
             
     return autoencoder, average_tr_loss_per_epoch_list   
-            
 
-def prepare_batches(history_data_series, batch_length_days):
+def prepare_batches(history_data_series, batch_length_days, window_length=101):
+    data_set_tr = preprocessing.minute_resampling(history_data_series)
     if history_data_series.index.max()-history_data_series.index.min() > pd.Timedelta(batch_length_days,'d'):
-        data_set_tr = preprocessing.minute_resampling(history_data_series)
         data_set_tr = data_set_tr.loc[history_data_series.index.max()-pd.Timedelta(batch_length_days,'days'):]
-        data_set_tr = preprocessing.smooth_data(data_set_tr)
-        return preprocessing.decompose_into_time_windows(data_set_tr, window_length=101)
-    else:
-        return preprocessing.decompose_into_time_windows(history_data_series, window_length=101)
+    data_set_tr = preprocessing.smooth_data(data_set_tr)
+    shift_dict_tr = {}
+    for n in range(int(window_length/10)):
+        shift_dict_tr[n] = data_set_tr[10*n:]
+    return np.concatenate(tuple(preprocessing.decompose_into_time_windows(shift_dict_tr[n], window_length=101) for n in range(int(window_length/10))))
 
 def batch_train(anomaly_detector, model_file_path, use_cuda, batch_length_days=50, epochs=500):
     autoencoder = anomaly_detector.model
@@ -102,7 +102,7 @@ def batch_train(anomaly_detector, model_file_path, use_cuda, batch_length_days=5
     data_series = pd.Series(data=[data_point for _, data_point in data_list], index=[timestamp.replace(microsecond=0) for timestamp, _ in data_list]).sort_index()
     data_series = data_series[~data_series.index.duplicated(keep='first')]
     normalized_history_data_series = preprocessing.normalize_data(data_series)
-    training_batches = prepare_batches(normalized_history_data_series, batch_length_days)
+    training_batches = prepare_batches(normalized_history_data_series, batch_length_days, window_length=101)
     autoencoder, average_tr_loss_per_epoch_list = train(autoencoder, torch.Tensor(training_batches), epochs, use_cuda)
     anomaly_detector.training_performance.append(average_tr_loss_per_epoch_list)
     torch.save(autoencoder.state_dict(), model_file_path)
