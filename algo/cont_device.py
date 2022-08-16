@@ -15,19 +15,19 @@ use_cuda = torch.cuda.is_available()
 class Encoder(nn.Module):
     def __init__(self, latent_dims):
         super().__init__()
-        self.conv1 = nn.Conv1d(1, 16, 5, stride=2) # Size of each channel: (101-5)/2+1=49
-        self.conv2 = nn.Conv1d(16, 32, 5, stride=2)# Size of each channel: (49-5)/2+1=23
+        self.conv1 = nn.Conv1d(1, 16, 7, stride=3) # Size of each channel: (205-7)/3+1=67
+        self.conv2 = nn.Conv1d(16, 32, 7, stride=3)# Size of each channel: (67-7)/3+1=21
         
-        self.fc1 = nn.Linear(736, latent_dims)
+        self.fc1 = nn.Linear(672, latent_dims)
         
         self.dropout = nn.Dropout(p=0.6)
 
     def forward(self, x):
-        x = x.view(1,1,101)
+        x = x.view(1,1,205)
         x = F.relu(self.dropout(self.conv1(x)))
         x = F.relu(self.dropout(self.conv2(x)))
         
-        x = x.view(-1,736)
+        x = x.view(-1,672)
         
         x = self.fc1(x)
         
@@ -36,9 +36,9 @@ class Encoder(nn.Module):
 class Decoder(nn.Module):
     def __init__(self, latent_dims):
         super().__init__()
-        self.fc1 = nn.Linear(latent_dims, 736)
-        self.convt1 = nn.ConvTranspose1d(32, 16, kernel_size=5, stride=2)
-        self.convt2 = nn.ConvTranspose1d(16, 1, kernel_size=5, stride=2)
+        self.fc1 = nn.Linear(latent_dims, 672)
+        self.convt1 = nn.ConvTranspose1d(32, 16, kernel_size=7, stride=3)
+        self.convt2 = nn.ConvTranspose1d(16, 1, kernel_size=7, stride=3)
         
         self.dropout = nn.Dropout(p=0.4)
         
@@ -46,10 +46,10 @@ class Decoder(nn.Module):
     def forward(self, z):
         z = F.relu(self.dropout(self.fc1(z)))
         
-        z = z.view(-1,32,23)
+        z = z.view(-1,32,21)
         z = F.relu(self.convt1(z))
         z = self.convt2(z)
-        z = z.view(-1,101)
+        z = z.view(-1,205)
         
         return z
 
@@ -86,23 +86,23 @@ def train(autoencoder, tr_data, epochs, use_cuda):
             
     return autoencoder, average_tr_loss_per_epoch_list   
 
-def prepare_batches(history_data_series, batch_length_days, window_length=101):
+def prepare_batches(history_data_series, batch_length_days, train_window_length=205):
     data_set_tr = preprocessing.minute_resampling(history_data_series)
     if history_data_series.index.max()-history_data_series.index.min() > pd.Timedelta(batch_length_days,'d'):
         data_set_tr = data_set_tr.loc[history_data_series.index.max()-pd.Timedelta(batch_length_days,'days'):]
     data_set_tr = preprocessing.smooth_data(data_set_tr)
     shift_dict_tr = {}
-    for n in range(int(window_length/10)):
+    for n in range(int(train_window_length/10)):
         shift_dict_tr[n] = data_set_tr[10*n:]
-    return np.concatenate(tuple(preprocessing.decompose_into_time_windows(shift_dict_tr[n], window_length=101) for n in range(int(window_length/10))))
+    return np.concatenate(tuple(preprocessing.decompose_into_time_windows(shift_dict_tr[n], train_window_length) for n in range(int(train_window_length/10))))
 
-def batch_train(anomaly_detector, model_file_path, use_cuda, batch_length_days=50, epochs=20):
+def batch_train(anomaly_detector, model_file_path, use_cuda, batch_length_days=50, epochs=10):
     autoencoder = anomaly_detector.model
     data_list = anomaly_detector.data
     data_series = pd.Series(data=[data_point for _, data_point in data_list], index=[timestamp.replace(microsecond=0) for timestamp, _ in data_list]).sort_index()
     data_series = data_series[~data_series.index.duplicated(keep='first')]
     normalized_history_data_series = preprocessing.normalize_data(data_series)
-    training_batches = prepare_batches(normalized_history_data_series, batch_length_days, window_length=101)
+    training_batches = prepare_batches(normalized_history_data_series, batch_length_days, train_window_length=205)
     autoencoder, average_tr_loss_per_epoch_list = train(autoencoder, torch.Tensor(training_batches), epochs, use_cuda)
     anomaly_detector.training_performance.append(average_tr_loss_per_epoch_list)
     torch.save(autoencoder.state_dict(), model_file_path)
