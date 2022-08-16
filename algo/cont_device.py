@@ -135,22 +135,25 @@ def batch_train(anomaly_detector, model_file_path, use_cuda, batch_length_days=5
     model.train()
     return errors'''
 
-def get_dtw_errors(data_array, model, use_cuda):
+def get_dtw_errors(model_input_data_array, model, use_cuda):
     errors = []
     model.eval()
-    for data_series in data_array:
+    for data_series in model_input_data_array:
         model_input = torch.Tensor(data_series)
         if use_cuda:
             model_input = model_input.cuda()
         model_output = model(model_input)
-        x = np.linspace(0,len(data_series)-1,len(data_series))
-        y_1 = np.squeeze(model_output.detach().cpu().numpy())
-        y_2 = data_series
+        x = np.linspace(0,int(len(data_series)/2)-1,int(len(data_series)/2))
+        y_1 = np.squeeze(model_output.detach().cpu().numpy())[0:int(len(data_series)/2)]
+        y_2 = data_series[0:int(len(data_series)/2)]
         errors.append(similaritymeasures.dtw(np.column_stack((x,y_1)), np.column_stack((x,y_2)), metric='canberra')[0])
+        z_1 = np.squeeze(model_output.detach().cpu().numpy())[len(data_series)-int(len(data_series)/2):]
+        z_2 = data_series[len(data_series)-int(len(data_series)/2):]
+        errors.append(similaritymeasures.dtw(np.column_stack((x,z_1)), np.column_stack((x,z_2)), metric='canberra')[0])
     model.train()
     return errors
 
-def get_anomalous_part(anomalous_time_window, model, use_cuda, short_time_length=50):
+'''def get_anomalous_part(anomalous_time_window, model, use_cuda, short_time_length=50):
     array_of_short_parts = []
     array_of_approx_short_parts = []
 
@@ -168,26 +171,27 @@ def get_anomalous_part(anomalous_time_window, model, use_cuda, short_time_length
     errors = []       
     for i in range(len(array_of_short_parts)):
         errors.append(integrate.simpson(abs(array_of_short_parts[i]-array_of_approx_short_parts[i])).item(0))
-    return array_of_short_parts[np.argmax(errors)]
+    return array_of_short_parts[np.argmax(errors)]'''
 
-def test(data_list, anomaly_detector, use_cuda, window_length=101):
+def test(data_list, anomaly_detector, use_cuda, model_input_window_length=205):
     anomaly_detector.model.eval()
     data_series = pd.Series(data=[data_point for _, data_point in data_list], index=[timestamp.replace(microsecond=0) for timestamp, _ in data_list]).sort_index()
     data_series = data_series[~data_series.index.duplicated(keep='first')]
     data_series = preprocessing.normalize_data(data_series)
     data_series = preprocessing.minute_resampling(data_series)
     data_series_smooth = preprocessing.smooth_data(data_series)
-    data_array = preprocessing.decompose_into_time_windows(data_series_smooth, window_length)
+    model_input_data_array = preprocessing.decompose_into_time_windows(data_series_smooth, model_input_window_length)
     #reconstruction_area_errors = get_area_errors(data_array, anomaly_detector.model, use_cuda)
     #reconstruction_curve_length_measure_errors = get_curve_length_measure_errors(data_array, anomaly_detector.model, use_cuda)
-    reconstruction_dtw_errors = get_dtw_errors(data_array, anomaly_detector.model, use_cuda)
+    reconstruction_dtw_errors = get_dtw_errors(model_input_data_array, anomaly_detector.model, use_cuda)
     anomalous_reconstruction_indices = error_calculation.get_anomalous_indices(reconstruction_dtw_errors)
-    if data_array.shape[0]-1 in anomalous_reconstruction_indices:
-        anomalous_time_window = data_series[-window_length:]
-        anomalous_time_window_smooth = data_series_smooth[-window_length:]
+    if 2*model_input_data_array.shape[0]-1 in anomalous_reconstruction_indices:
+        anomalous_time_window = data_series[-model_input_window_length:]
+        anomalous_time_window_smooth = data_series_smooth[-model_input_window_length:]
+        anomalous_time_window_smooth_short = data_series_smooth[-int(model_input_window_length/2):]
         anomaly_detector.anomalies.append((anomalous_time_window,
                                            anomalous_time_window_smooth,
-                                           get_anomalous_part(anomalous_time_window_smooth, anomaly_detector.model, use_cuda, short_time_length = 50)))
+                                           anomalous_time_window_smooth_short))
         print('An anomaly has just occurred!')
         anomaly_detector.model.train()
         return 1
