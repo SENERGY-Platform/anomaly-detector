@@ -131,10 +131,10 @@ def get_curve_length_measure_errors(model_input_data_array, model, use_cuda):
         x = np.linspace(0,int(len(data_series)/2)-1,int(len(data_series)/2))
         y_1 = np.squeeze(model_output.detach().cpu().numpy())[0:int(len(data_series)/2)]
         y_2 = data_series[0:int(len(data_series)/2)]
-        errors.append(similaritymeasures.curve_length_measure(np.column_stack((x,y_1)), np.column_stack((x,y_2)), metric='canberra'))
+        errors.append(similaritymeasures.curve_length_measure(np.column_stack((x,y_1)), np.column_stack((x,y_2))))
         z_1 = np.squeeze(model_output.detach().cpu().numpy())[len(data_series)-int(len(data_series)/2):]
         z_2 = data_series[len(data_series)-int(len(data_series)/2):]
-        errors.append(similaritymeasures.curve_length_measure(np.column_stack((x,z_1)), np.column_stack((x,z_2)), metric='canberra'))
+        errors.append(similaritymeasures.curve_length_measure(np.column_stack((x,z_1)), np.column_stack((x,z_2))))
     model.train()
     return errors
 
