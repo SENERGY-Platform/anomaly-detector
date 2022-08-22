@@ -66,12 +66,11 @@ class Operator(util.OperatorBase):
             pass
 
     def test(self, use_cuda):
-        if self.anomaly_detector.last_training_time > self.anomaly_detector.initial_time:
-            if self.anomaly_detector.device_type == 'cont_device':
-                output = cont_device.test(self.anomaly_detector.data, self.anomaly_detector, use_cuda)
-            elif self.anomaly_detector.device_type == 'load_device':
-                output = load_device.train_test(self.anomaly_detector, self.model_file_path)
-            return output
+        if self.anomaly_detector.device_type == 'cont_device' and self.anomaly_detector.last_training_time > self.anomaly_detector.initial_time:
+            output = cont_device.test(self.anomaly_detector.data, self.anomaly_detector, use_cuda)
+        elif self.anomaly_detector.device_type == 'load_device':
+            output = load_device.train_test(self.anomaly_detector, self.model_file_path)
+        return output
 
     def run(self, data, selector='energy_func'):
         if os.getenv("DEBUG") is not None and os.getenv("DEBUG").lower() == "true":
