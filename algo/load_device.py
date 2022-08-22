@@ -53,6 +53,7 @@ def train_test(anomaly_detector, model_file_path):
     data_series = pd.Series(data=[data_point for _, data_point in data_list], index=[timestamp for timestamp, _ in data_list]).sort_index()
     data_series = data_series[~data_series.index.duplicated(keep='first')]
     list_of_loads = extract_loads(data_series)
+    anomaly_detector.loads = list_of_loads
     list_of_normalized_loads = [preprocessing.normalize_data(load) for load in list_of_loads]
     anomalous_length_indices = find_anomalous_lengths(list_of_normalized_loads)
     if len(list_of_loads)-1 in anomalous_length_indices:
