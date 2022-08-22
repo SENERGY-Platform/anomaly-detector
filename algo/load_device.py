@@ -45,29 +45,37 @@ def padding(list_of_loads, length):
 def find_anomalous_lengths(list_of_loads):
     model=IsolationForest(contamination=0.01)
     model.fit([[len(load)] for load in list_of_loads])
-    anomalous_length_indices = model.predict([[len(load)] for load in list_of_loads])
+    predictions = model.predict([[len(load)] for load in list_of_loads])
+    anomalous_length_indices = [i for i in range(len(list_of_loads)) if predictions[i]==-1]
     return anomalous_length_indices
 
 def train_test(anomaly_detector, model_file_path):
     data_list = anomaly_detector.data
     data_series = pd.Series(data=[data_point for _, data_point in data_list], index=[timestamp for timestamp, _ in data_list]).sort_index()
     data_series = data_series[~data_series.index.duplicated(keep='first')]
-    list_of_loads = extract_loads(data_series)
-    anomaly_detector.loads = list_of_loads
-    list_of_normalized_loads = [preprocessing.normalize_data(load) for load in list_of_loads]
-    anomalous_length_indices = find_anomalous_lengths(list_of_normalized_loads)
-    if len(list_of_loads)-1 in anomalous_length_indices:
-        anomaly_detector.anomalies.append((list_of_loads[-1],'length of load'))
-        return 2
-    array_of_loads = padding(list_of_loads, max([len(load) for load in list_of_loads]))
-    model=IsolationForest()
-    model.fit(array_of_loads[-50:])
-    with open(model_file_path, 'wb') as f:
-        pickle.dump(model, f)
-    predictions = model.predict(array_of_loads[-50:])
-    if predictions[-1] < 0:
-        anomaly_detector.anomalies.append((list_of_loads[-1],'load'))
-        return 1
+    if anomaly_detector.loads==None:
+        old_number_of_loads=0
+        anomaly_detector.loads=extract_loads(data_series)
+    else:
+        old_number_of_loads = len(anomaly_detector.loads)
+        last_load = anomaly_detector.loads[-1]
+        endpoint_last_load = last_load.index[-1]
+        anomaly_detector.loads += extract_loads(data_series.loc[endpoint_last_load:])
+    if len(anomaly_detector.loads) > old_number_of_loads:
+        list_of_normalized_loads = [preprocessing.normalize_data(load) for load in anomaly_detector.loads]
+        anomalous_length_indices = find_anomalous_lengths(list_of_normalized_loads)
+        if len(anomaly_detector.loads)-1 in anomalous_length_indices:
+            anomaly_detector.anomalies.append((anomaly_detector.loads[-1],'length of load'))
+            print('A load of anomalous length just ended!')
+        array_of_normalized_loads = padding(list_of_normalized_loads, max([len(load) for load in list_of_normalized_loads]))
+        model=IsolationForest()
+        model.fit(array_of_normalized_loads)
+        with open(model_file_path, 'wb') as f:
+            pickle.dump(model, f)
+        predictions = model.predict(array_of_normalized_loads)
+        if predictions[-1] < 0:
+            anomaly_detector.anomalies.append((anomaly_detector.loads[-1],'load'))
+            print('A load with an anomalous power curve just ended!')
     
 
     
