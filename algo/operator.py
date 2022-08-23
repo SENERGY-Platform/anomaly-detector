@@ -80,8 +80,6 @@ class Operator(util.OperatorBase):
         if self.anomaly_detector.first_data_time == None:
             self.anomaly_detector.first_data_time = pd.to_datetime(data['energy_time'])
             self.anomaly_detector.last_training_time = self.anomaly_detector.first_data_time
-        if pd.to_datetime(data['energy_time']) < self.anomaly_detector.initial_time:
-            return
         if self.anomaly_detector.device_type == None:
             if pd.to_datetime(data['energy_time'])-self.anomaly_detector.first_data_time < pd.Timedelta(1, 'days'):
                 return
