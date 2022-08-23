@@ -77,13 +77,16 @@ class Operator(util.OperatorBase):
             return
         if os.getenv("DEBUG") is not None and os.getenv("DEBUG").lower() == "true":
             print(selector + ": " + 'energy: '+str(data['energy'])+'  '+'time: '+str(pd.to_datetime(data['energy_time'])))
+        if self.anomaly_detector.first_data_time == None:
+            self.anomaly_detector.first_data_time = pd.to_datetime(data['energy_time'])
+            self.anomaly_detector.last_training_time = self.anomaly_detector.first_data_time
+            self.anomaly_detector.data.append([pd.to_datetime(data['energy_time']), float(data['energy'])])
+            return
         if self.anomaly_detector.data[0][0]+pd.Timedelta(100, 'days') > pd.to_datetime(data['energy_time']):
             self.anomaly_detector.data.append([pd.to_datetime(data['energy_time']), float(data['energy'])])
         elif self.anomaly_detector.data[0][0]+pd.Timedelta(100, 'days') <= pd.to_datetime(data['energy_time']):
             self.anomaly_detector.data.pop(0)
-        if self.anomaly_detector.first_data_time == None:
-            self.anomaly_detector.first_data_time = pd.to_datetime(data['energy_time'])
-            self.anomaly_detector.last_training_time = self.anomaly_detector.first_data_time
+            self.anomaly_detector.data.append([pd.to_datetime(data['energy_time']), float(data['energy'])])
         if self.anomaly_detector.device_type == None:
             if pd.to_datetime(data['energy_time'])-self.anomaly_detector.first_data_time < pd.Timedelta(1, 'days'):
                 return
