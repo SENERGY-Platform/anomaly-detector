@@ -82,6 +82,7 @@ class Operator(util.OperatorBase):
         return output
 
     def run(self, data, selector='energy_func'):
+        print(data['energy_time'])
         print(self.todatetime(data['energy_time']).tz_localize(None))
         if pd.Timedelta(70, 'days')+self.todatetime(data['energy_time']).tz_localize(None)<self.anomaly_detector.initial_time:
             return
