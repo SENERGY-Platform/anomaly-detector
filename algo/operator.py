@@ -52,7 +52,7 @@ class Operator(util.OperatorBase):
         return device_type
         
     def batch_train(self, data, use_cuda):
-        if pd.to_datetime(data['energy_time']).tz_localize(None)-self.anomaly_detector.last_training_time >= pd.Timedelta(14, 'days'): 
+        if pd.to_datetime(data['energy_time'], unit='ms').tz_localize(None)-self.anomaly_detector.last_training_time >= pd.Timedelta(14, 'days'): 
             if self.anomaly_detector.device_type == 'cont_device':
                 if self.anomaly_detector.last_training_time == self.anomaly_detector.first_data_time:
                     self.anomaly_detector.model = cont_device.Autoencoder(32)
@@ -61,8 +61,8 @@ class Operator(util.OperatorBase):
                 self.anomaly_detector.model = cont_device.batch_train(self.anomaly_detector, self.model_file_path, use_cuda)
             elif self.anomaly_detector.device_type == 'load_device':
                 pass # training IsolationForest is that fast, that we can train it again with every new data point.
-            self.anomaly_detector.last_training_time = pd.to_datetime(data['energy_time']).tz_localize(None)
-        elif pd.to_datetime(data['energy_time']).tz_localize(None)-self.anomaly_detector.last_training_time < pd.Timedelta(14, 'days'):
+            self.anomaly_detector.last_training_time = pd.to_datetime(data['energy_time'], unit='ms').tz_localize(None)
+        elif pd.to_datetime(data['energy_time'], unit='ms').tz_localize(None)-self.anomaly_detector.last_training_time < pd.Timedelta(14, 'days'):
             pass
 
     def test(self, use_cuda):
@@ -76,25 +76,25 @@ class Operator(util.OperatorBase):
         if pd.Timedelta(100, 'days')+pd.to_datetime(data['energy_time'], unit='ms').tz_localize(None)<self.anomaly_detector.initial_time:
             return
         if os.getenv("DEBUG") is not None and os.getenv("DEBUG").lower() == "true":
-            print(selector + ": " + 'energy: '+str(data['energy'])+'  '+'time: '+str(pd.to_datetime(data['energy_time']).tz_localize(None)))
+            print(selector + ": " + 'energy: '+str(data['energy'])+'  '+'time: '+str(pd.to_datetime(data['energy_time'], unit='ms').tz_localize(None)))
         if self.anomaly_detector.first_data_time == None:
-            self.anomaly_detector.first_data_time = pd.to_datetime(data['energy_time']).tz_localize(None)
+            self.anomaly_detector.first_data_time = pd.to_datetime(data['energy_time'], unit='ms').tz_localize(None)
             self.anomaly_detector.last_training_time = self.anomaly_detector.first_data_time
-            self.anomaly_detector.data.append([pd.to_datetime(data['energy_time']).tz_localize(None), float(data['energy'])])
+            self.anomaly_detector.data.append([pd.to_datetime(data['energy_time'], unit='ms').tz_localize(None), float(data['energy'])])
             return
-        if self.anomaly_detector.data[0][0]+pd.Timedelta(100, 'days') > pd.to_datetime(data['energy_time']).tz_localize(None):
-            self.anomaly_detector.data.append([pd.to_datetime(data['energy_time']).tz_localize(None), float(data['energy'])])
-        elif self.anomaly_detector.data[0][0]+pd.Timedelta(100, 'days') <= pd.to_datetime(data['energy_time']).tz_localize(None):
+        if self.anomaly_detector.data[0][0]+pd.Timedelta(100, 'days') > pd.to_datetime(data['energy_time'], unit='ms').tz_localize(None):
+            self.anomaly_detector.data.append([pd.to_datetime(data['energy_time'], unit='ms').tz_localize(None), float(data['energy'])])
+        elif self.anomaly_detector.data[0][0]+pd.Timedelta(100, 'days') <= pd.to_datetime(data['energy_time'], unit='ms').tz_localize(None):
             self.anomaly_detector.data.pop(0)
-            self.anomaly_detector.data.append([pd.to_datetime(data['energy_time']).tz_localize(None), float(data['energy'])])
+            self.anomaly_detector.data.append([pd.to_datetime(data['energy_time'], unit='ms').tz_localize(None), float(data['energy'])])
         if self.anomaly_detector.device_type == None:
-            if pd.to_datetime(data['energy_time']).tz_localize(None)-self.anomaly_detector.first_data_time < pd.Timedelta(1, 'days'):
+            if pd.to_datetime(data['energy_time'], unit='ms').tz_localize(None)-self.anomaly_detector.first_data_time < pd.Timedelta(1, 'days'):
                 return
-            elif pd.to_datetime(data['energy_time']).tz_localize(None)-self.anomaly_detector.first_data_time >= pd.Timedelta(1, 'days'):
+            elif pd.to_datetime(data['energy_time'], unit='ms').tz_localize(None)-self.anomaly_detector.first_data_time >= pd.Timedelta(1, 'days'):
                 self.anomaly_detector.device_type = self.get_device_type(self.anomaly_detector.data)
                 print(self.anomaly_detector.device_type)
-            self.anomaly_detector.data.append([pd.to_datetime(data['energy_time']).tz_localize(None), float(data['energy'])])
-        if pd.to_datetime(data['energy_time']).tz_localize(None)<self.anomaly_detector.initial_time:
+            self.anomaly_detector.data.append([pd.to_datetime(data['energy_time'], unit='ms').tz_localize(None), float(data['energy'])])
+        if pd.to_datetime(data['energy_time'], unit='ms').tz_localize(None)<self.anomaly_detector.initial_time:
             return
         use_cuda = torch.cuda.is_available()
         self.batch_train(data, use_cuda)
