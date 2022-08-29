@@ -73,10 +73,11 @@ class Operator(util.OperatorBase):
         return output
 
     def run(self, data, selector='energy_func'):
-        if pd.Timedelta(100, 'days')+pd.to_datetime(data['energy_time']).tz_localize(None)<self.anomaly_detector.initial_time:
-            return
         if os.getenv("DEBUG") is not None and os.getenv("DEBUG").lower() == "true":
             print(selector + ": " + 'energy: '+str(data['energy'])+'  '+'time: '+str(pd.to_datetime(data['energy_time']).tz_localize(None)))
+        if pd.Timedelta(100, 'days')+pd.to_datetime(data['energy_time']).tz_localize(None)<self.anomaly_detector.initial_time:
+            print('Ignore')
+            return
         if self.anomaly_detector.first_data_time == None:
             self.anomaly_detector.first_data_time = pd.to_datetime(data['energy_time']).tz_localize(None)
             self.anomaly_detector.last_training_time = self.anomaly_detector.first_data_time
