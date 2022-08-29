@@ -35,7 +35,7 @@ class Operator(util.OperatorBase):
 
         self.anomaly_detector = anom_detector.Anomaly_Detector(device_id)
 
-    def todatetime(timestamp):
+    def todatetime(self, timestamp):
         if str(timestamp).isdigit():
             if len(str(timestamp))==13:
                 return pd.to_datetime(int(timestamp), unit='ms')
