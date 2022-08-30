@@ -21,6 +21,7 @@ import torch
 import pandas as pd
 import os
 import pickle
+import feather
 from . import anom_detector, cont_device, load_device
 
 class Operator(util.OperatorBase):
@@ -31,7 +32,7 @@ class Operator(util.OperatorBase):
         self.device_id = device_id
 
         self.model_file_path = f'{data_path}/{self.device_id}_model.pt'
-        self.anomaly_detector_data_path = f'{data_path}/{self.device_id}_anomaly_detector_data.csv'
+        self.anomaly_detector_data_path = f'{data_path}/{self.device_id}_anomaly_detector_data.feather'
         self.anomaly_detector_initial_time_path = f'{data_path}/{self.device_id}_anomaly_detector_initial_time.pickle'
         self.anomaly_detector_first_data_time_path = f'{data_path}/{self.device_id}_anomaly_detector_first_data_time.pickle'
         self.anomaly_detector_last_training_time_path = f'{data_path}/{self.device_id}_anomaly_detector_last_training_time.pickle'
@@ -93,7 +94,7 @@ class Operator(util.OperatorBase):
         data_list = self.anomaly_detector.data
         data_series = pd.Series(data=[data_point for _, data_point in data_list], index=[timestamp.replace(microsecond=0) for timestamp, _ in data_list]).sort_index()
         data_series = data_series[~data_series.index.duplicated(keep='first')]
-        data_series.to_csv('out.csv')
+        feather.write_dataframe(data_series, self.anomaly_detector_data_path)
         with open(self.anomaly_detector_initial_time_path, 'wb') as f:
             pickle.dump(self.anomaly_detector.initial_time, f)
         with open(self.anomaly_detector_first_data_time_path, 'wb') as f:
