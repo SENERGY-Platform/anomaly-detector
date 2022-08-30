@@ -11,6 +11,3 @@ scipy
 sklearn
 tqdm
 similaritymeasures
-feather
-MarkupSafe==2.0.1
-itsdangerous==2.0.1
