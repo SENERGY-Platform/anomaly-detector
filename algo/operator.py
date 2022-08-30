@@ -112,7 +112,7 @@ class Operator(util.OperatorBase):
             pickle.dump(self.anomaly_detector.loads, f)
 
     def run(self, data, selector='energy_func'):
-        if pd.Timedelta(70, 'days')+self.todatetime(data['energy_time']).tz_localize(None)<self.anomaly_detector.initial_time:
+        if pd.Timedelta(100, 'days')+self.todatetime(data['energy_time']).tz_localize(None)<self.anomaly_detector.initial_time:
             return
         if os.getenv("DEBUG") is not None and os.getenv("DEBUG").lower() == "true":
             print(selector + ": " + 'energy: '+str(data['energy'])+'  '+'time: '+str(self.todatetime(data['energy_time']).tz_localize(None)))
