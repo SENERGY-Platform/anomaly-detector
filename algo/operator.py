@@ -31,7 +31,15 @@ class Operator(util.OperatorBase):
         self.device_id = device_id
 
         self.model_file_path = f'{data_path}/{self.device_id}_model.pt'
-        self.anomaly_detector_path = f'{data_path}/{self.device_id}_anomaly_detector.pickle'
+        self.anomaly_detector_data_path = f'{data_path}/{self.device_id}_anomaly_detector_data.csv'
+        self.anomaly_detector_initial_time_path = f'{data_path}/{self.device_id}_anomaly_detector_initial_time.pickle'
+        self.anomaly_detector_first_data_time_path = f'{data_path}/{self.device_id}_anomaly_detector_first_data_time.pickle'
+        self.anomaly_detector_last_training_time_path = f'{data_path}/{self.device_id}_anomaly_detector_last_training_time.pickle'
+        self.anomaly_detector_device_id_path = f'{data_path}/{self.device_id}_anomaly_detector_device_id.pickle'
+        self.anomaly_detector_device_type_path = f'{data_path}/{self.device_id}_anomaly_detector_device_type.pickle'
+        self.anomaly_detector_anomalies_path = f'{data_path}/{self.device_id}_anomaly_detector_anomalies.pickle'
+        self.anomaly_detector_training_performance_path = f'{data_path}/{self.device_id}_anomaly_detector_training_performance.pickle'
+        self.anomaly_detector_loads_path = f'{data_path}/{self.device_id}_anomaly_detector_loads.pickle'
 
         self.anomaly_detector = anom_detector.Anomaly_Detector(device_id)
 
@@ -81,6 +89,28 @@ class Operator(util.OperatorBase):
             output = load_device.train_test(self.anomaly_detector, self.model_file_path)
         return output
 
+    def save_data(self):
+        data_list = self.anomaly_detector.data
+        data_series = pd.Series(data=[data_point for _, data_point in data_list], index=[timestamp.replace(microsecond=0) for timestamp, _ in data_list]).sort_index()
+        data_series = data_series[~data_series.index.duplicated(keep='first')]
+        data_series.to_csv('out.csv')
+        with open(self.anomaly_detector_initial_time_path, 'wb') as f:
+            pickle.dump(self.anomaly_detector.initial_time, f)
+        with open(self.anomaly_detector_first_data_time_path, 'wb') as f:
+            pickle.dump(self.anomaly_detector.first_data_time, f)
+        with open(self.anomaly_detector_last_training_time_path, 'wb') as f:
+            pickle.dump(self.anomaly_detector.last_training_time, f)
+        with open(self.anomaly_detector_device_id_path, 'wb') as f:
+            pickle.dump(self.anomaly_detector.device_id, f)
+        with open(self.anomaly_detector_device_type_path, 'wb') as f:
+            pickle.dump(self.anomaly_detector.device_type, f)
+        with open(self.anomaly_detector_anomalies_path, 'wb') as f:
+            pickle.dump(self.anomaly_detector.anomalies, f)
+        with open(self.anomaly_detector_training_performance_path, 'wb') as f:
+            pickle.dump(self.anomaly_detector.training_performance, f)
+        with open(self.anomaly_detector_loads_path, 'wb') as f:
+            pickle.dump(self.anomaly_detector.loads, f)
+
     def run(self, data, selector='energy_func'):
         if pd.Timedelta(70, 'days')+self.todatetime(data['energy_time']).tz_localize(None)<self.anomaly_detector.initial_time:
             return
@@ -108,6 +138,5 @@ class Operator(util.OperatorBase):
         use_cuda = torch.cuda.is_available()
         self.batch_train(data, use_cuda)
         output = self.test(use_cuda)
-        with open(self.anomaly_detector_path, 'wb') as f:
-            pickle.dump(self.anomaly_detector, f)
+        self.save_data(self.anomaly_detector)
         return output
