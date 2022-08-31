@@ -22,6 +22,7 @@ import pandas as pd
 import os
 import pickle
 from . import anom_detector, cont_device, load_device
+import sys
 
 class Operator(util.OperatorBase):
     def __init__(self, device_id, data_path):
@@ -90,11 +91,12 @@ class Operator(util.OperatorBase):
         return output
 
     def save_data(self):
-        data_list = self.anomaly_detector.data
-        data_series = pd.Series(data=[data_point for _, data_point in data_list], index=[timestamp.replace(microsecond=0) for timestamp, _ in data_list]).sort_index()
-        data_series = data_series[~data_series.index.duplicated(keep='first')]
+        print(sys.getsizeof(self.anomaly_detector.data))
+        #data_list = self.anomaly_detector.data
+        #data_series = pd.Series(data=[data_point for _, data_point in data_list], index=[timestamp.replace(microsecond=0) for timestamp, _ in data_list]).sort_index()
+        #data_series = data_series[~data_series.index.duplicated(keep='first')]
         #data_series.to_feather(self.anomaly_detector_data_path)
-        with open(self.anomaly_detector_data_path, 'wb') as f:
+        '''with open(self.anomaly_detector_data_path, 'wb') as f:
             pickle.dump(self.anomaly_detector.data, f)
         with open(self.anomaly_detector_initial_time_path, 'wb') as f:
             pickle.dump(self.anomaly_detector.initial_time, f)
@@ -111,7 +113,7 @@ class Operator(util.OperatorBase):
         with open(self.anomaly_detector_training_performance_path, 'wb') as f:
             pickle.dump(self.anomaly_detector.training_performance, f)
         with open(self.anomaly_detector_loads_path, 'wb') as f:
-            pickle.dump(self.anomaly_detector.loads, f)
+            pickle.dump(self.anomaly_detector.loads, f)'''
 
     def run(self, data, selector='energy_func'):
         if pd.Timedelta(100, 'days')+self.todatetime(data['energy_time']).tz_localize(None)<self.anomaly_detector.initial_time:
