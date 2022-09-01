@@ -142,6 +142,5 @@ class Operator(util.OperatorBase):
         use_cuda = torch.cuda.is_available()
         self.batch_train(data, use_cuda)
         output = self.test(use_cuda)
-        print(self.getsize(self.anomaly_detector.data))
         self.save_data()
         return output
