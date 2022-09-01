@@ -137,7 +137,7 @@ class Operator(util.OperatorBase):
                 self.anomaly_detector.device_type = self.get_device_type(self.anomaly_detector.data)
                 print(self.anomaly_detector.device_type)
             self.anomaly_detector.data.append([self.todatetime(data['energy_time']).tz_localize(None), float(data['energy'])])
-        if self.todatetime(data['energy_time']).tz_localize(None)<self.anomaly_detector.initial_time:
+        if self.todatetime(data['energy_time']).tz_localize(None)<self.anomaly_detector.initial_time-pd.Timedelta(2,'hours'):
             return
         use_cuda = torch.cuda.is_available()
         self.batch_train(data, use_cuda)
