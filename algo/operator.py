@@ -21,17 +21,8 @@ import torch
 import pandas as pd
 import os
 import pickle
+import pyarrow
 from . import anom_detector, cont_device, load_device
-
-import sys
-from types import ModuleType, FunctionType
-from gc import get_referents
-
-# Custom objects know their class.
-# Function objects seem to know way too much, including modules.
-# Exclude modules as well.
-BLACKLIST = type, ModuleType, FunctionType
-
 
 
 class Operator(util.OperatorBase):
@@ -42,7 +33,7 @@ class Operator(util.OperatorBase):
         self.device_id = device_id
 
         self.model_file_path = f'{data_path}/{self.device_id}_model.pt'
-        self.anomaly_detector_data_path = f'{data_path}/{self.device_id}_anomaly_detector_data.pickle'
+        self.anomaly_detector_data_path = f'{data_path}/{self.device_id}_anomaly_detector_data.parquet'
         self.anomaly_detector_initial_time_path = f'{data_path}/{self.device_id}_anomaly_detector_initial_time.pickle'
         self.anomaly_detector_first_data_time_path = f'{data_path}/{self.device_id}_anomaly_detector_first_data_time.pickle'
         self.anomaly_detector_last_training_time_path = f'{data_path}/{self.device_id}_anomaly_detector_last_training_time.pickle'
@@ -100,12 +91,12 @@ class Operator(util.OperatorBase):
             output = load_device.train_test(self.anomaly_detector, self.model_file_path)
         return output
 
-    #def save_data(self):
-        #data_list = self.anomaly_detector.data
-        #data_series = pd.Series(data=[data_point for _, data_point in data_list], index=[timestamp.replace(microsecond=0) for timestamp, _ in data_list]).sort_index()
-        #data_series = data_series[~data_series.index.duplicated(keep='first')]
-        #data_series.to_feather(self.anomaly_detector_data_path)
-        '''with open(self.anomaly_detector_data_path, 'wb') as f:
+    def save_data(self):
+        data_list = self.anomaly_detector.data
+        data_series = pd.Series(data=[data_point for _, data_point in data_list], index=[timestamp.replace(microsecond=0) for timestamp, _ in data_list]).sort_index()
+        data_series = data_series[~data_series.index.duplicated(keep='first')]
+        data_series.to_parquet(self.anomaly_detector_data_path)
+        with open(self.anomaly_detector_data_path, 'wb') as f:
             pickle.dump(self.anomaly_detector.data, f)
         with open(self.anomaly_detector_initial_time_path, 'wb') as f:
             pickle.dump(self.anomaly_detector.initial_time, f)
@@ -122,24 +113,7 @@ class Operator(util.OperatorBase):
         with open(self.anomaly_detector_training_performance_path, 'wb') as f:
             pickle.dump(self.anomaly_detector.training_performance, f)
         with open(self.anomaly_detector_loads_path, 'wb') as f:
-            pickle.dump(self.anomaly_detector.loads, f)'''
-
-    def getsize(self,obj):
-        """sum size of object & members."""
-        if isinstance(obj, BLACKLIST):
-            raise TypeError('getsize() does not take argument of type: '+ str(type(obj)))
-        seen_ids = set()
-        size = 0
-        objects = [obj]
-        while objects:
-            need_referents = []
-            for obj in objects:
-                if not isinstance(obj, BLACKLIST) and id(obj) not in seen_ids:
-                    seen_ids.add(id(obj))
-                    size += sys.getsizeof(obj)
-                    need_referents.append(obj)
-            objects = get_referents(*need_referents)
-        return size
+            pickle.dump(self.anomaly_detector.loads, f)
     
     def run(self, data, selector='energy_func'):
         if pd.Timedelta(100, 'days')+self.todatetime(data['energy_time']).tz_localize(None)<self.anomaly_detector.initial_time:
@@ -166,8 +140,8 @@ class Operator(util.OperatorBase):
         if self.todatetime(data['energy_time']).tz_localize(None)<self.anomaly_detector.initial_time:
             return
         use_cuda = torch.cuda.is_available()
-        #self.batch_train(data, use_cuda)
-        #output = self.test(use_cuda)
+        self.batch_train(data, use_cuda)
+        output = self.test(use_cuda)
         print(self.getsize(self.anomaly_detector.data))
-        #self.save_data()
-        return #output
+        self.save_data()
+        return output

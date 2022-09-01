@@ -11,3 +11,4 @@ scipy
 sklearn
 tqdm
 similaritymeasures
+pyarrow
