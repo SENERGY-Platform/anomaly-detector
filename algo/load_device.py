@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 from sklearn.ensemble import IsolationForest
 import pickle
+import tqdm
 
 from . import preprocessing
 
@@ -11,7 +12,7 @@ def extract_loads(time_series):
     new_load = []
     end_check = []
     active = False
-    for i in range(len(time_series)):
+    for i in tqdm(range(len(time_series))):
         if active == True:
             new_load.append(i)
             if time_series[i] < 1.5: # If power values are below 1.5 for more than 10 time steps the load has stopped
