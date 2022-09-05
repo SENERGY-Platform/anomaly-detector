@@ -78,6 +78,7 @@ def train_test(anomaly_detector, model_file_path):
             anomaly_detector.anomalies.append((anomaly_detector.loads[-1],'load'))
             print('A load with an anomalous power curve just ended!')
             return 1
+    return 0
     
 
     

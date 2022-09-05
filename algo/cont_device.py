@@ -198,6 +198,10 @@ def test(data_list, anomaly_detector, use_cuda, model_input_window_length=205):
         print('An anomaly has just occurred!')
         anomaly_detector.model.train()
         return 1
-    anomaly_detector.model.train()
+    else:
+        anomaly_detector.model.train()
+        return 0
+    
+
 
     
