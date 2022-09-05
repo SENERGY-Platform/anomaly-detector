@@ -87,9 +87,12 @@ class Operator(util.OperatorBase):
     def test(self, use_cuda):
         if self.anomaly_detector.device_type == 'cont_device' and self.anomaly_detector.last_training_time > self.anomaly_detector.initial_time:
             output = cont_device.test(self.anomaly_detector.data, self.anomaly_detector, use_cuda)
+            return output
         elif self.anomaly_detector.device_type == 'load_device':
             output = load_device.train_test(self.anomaly_detector, self.model_file_path)
-        return output
+            return output
+        else:
+            return 
 
     def save_data(self):
         data_list = self.anomaly_detector.data
