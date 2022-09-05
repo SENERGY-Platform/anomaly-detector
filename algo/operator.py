@@ -95,7 +95,9 @@ class Operator(util.OperatorBase):
         data_list = self.anomaly_detector.data
         data_series = pd.Series(data=[data_point for _, data_point in data_list], index=[timestamp.replace(microsecond=0).strftime('%Y-%m-%d %X') for timestamp, _ in data_list]).sort_index()
         data_series = data_series[~data_series.index.duplicated(keep='first')]
-        data_series.to_frame().to_parquet(self.anomaly_detector_data_path)
+        df = data_series.to_frame()
+        df.columns = ['power_values']
+        df.to_parquet(self.anomaly_detector_data_path)
         with open(self.anomaly_detector_initial_time_path, 'wb') as f:
             pickle.dump(self.anomaly_detector.initial_time, f)
         with open(self.anomaly_detector_first_data_time_path, 'wb') as f:
