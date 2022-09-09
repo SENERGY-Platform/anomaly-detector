@@ -3,7 +3,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 import pandas as pd
 import numpy as np
-import scipy.integrate as integrate
 import similaritymeasures
 from tqdm import tqdm
 
@@ -108,17 +107,23 @@ def batch_train(anomaly_detector, model_file_path, use_cuda, batch_length_days=5
     torch.save(autoencoder.state_dict(), model_file_path)
     return autoencoder
 
-'''def get_area_errors(data_array, model, use_cuda):
+def get_area_errors(model_input_data_array, model, use_cuda):
     errors = []
     model.eval()
-    for data_series in data_array:
+    for data_series in model_input_data_array:
         model_input = torch.Tensor(data_series)
         if use_cuda:
             model_input = model_input.cuda()
         model_output = model(model_input)
-        errors.append(integrate.simpson(abs(np.squeeze(model_output.detach().cpu().numpy())-data_series)).item(0))
+        x = np.linspace(0,int(len(data_series)/2)-1,int(len(data_series)/2))
+        y_1 = np.squeeze(model_output.detach().cpu().numpy())[0:int(len(data_series)/2)]
+        y_2 = data_series[0:int(len(data_series)/2)]
+        errors.append(similaritymeasures.area_between_two_curves(np.column_stack((x,y_1)), np.column_stack((x,y_2))))
+        z_1 = np.squeeze(model_output.detach().cpu().numpy())[len(data_series)-int(len(data_series)/2):]
+        z_2 = data_series[len(data_series)-int(len(data_series)/2):]
+        errors.append(similaritymeasures.area_between_two_curves(np.column_stack((x,z_1)), np.column_stack((x,z_2))))
     model.train()
-    return errors'''
+    return errors
 
 def get_curve_length_measure_errors(model_input_data_array, model, use_cuda):
     errors = []
@@ -184,10 +189,10 @@ def test(data_list, anomaly_detector, use_cuda, model_input_window_length=205):
     data_series = preprocessing.minute_resampling(data_series)
     data_series_smooth = preprocessing.smooth_data(data_series)
     model_input_data_array = preprocessing.decompose_into_time_windows(data_series_smooth, model_input_window_length)
-    #reconstruction_area_errors = get_area_errors(data_array, anomaly_detector.model, use_cuda)
-    reconstruction_curve_length_measure_errors = get_curve_length_measure_errors(model_input_data_array, anomaly_detector.model, use_cuda)
+    reconstruction_area_errors = get_area_errors(model_input_data_array, anomaly_detector.model, use_cuda)
+    #reconstruction_curve_length_measure_errors = get_curve_length_measure_errors(model_input_data_array, anomaly_detector.model, use_cuda)
     reconstruction_dtw_errors = get_dtw_errors(model_input_data_array, anomaly_detector.model, use_cuda)
-    anomalous_reconstruction_indices = error_calculation.get_anomalous_indices(reconstruction_dtw_errors)+error_calculation.get_anomalous_indices(reconstruction_curve_length_measure_errors)
+    anomalous_reconstruction_indices = error_calculation.get_anomalous_indices(reconstruction_dtw_errors)+error_calculation.get_anomalous_indices(reconstruction_area_errors)
     if 2*model_input_data_array.shape[0]-1 in anomalous_reconstruction_indices:
         anomalous_time_window = data_series[-model_input_window_length:]
         anomalous_time_window_smooth = data_series_smooth[-model_input_window_length:]
