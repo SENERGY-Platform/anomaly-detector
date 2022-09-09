@@ -96,7 +96,7 @@ def prepare_batches(history_data_series, batch_length_days, train_window_length=
         shift_dict_tr[n] = data_set_tr[10*n:]
     return np.concatenate(tuple(preprocessing.decompose_into_time_windows(shift_dict_tr[n], train_window_length) for n in range(int(train_window_length/10))))
 
-def batch_train(anomaly_detector, model_file_path, use_cuda, batch_length_days=50, epochs=10):
+def batch_train(anomaly_detector, model_file_path, use_cuda, batch_length_days=50, epochs=20):
     autoencoder = anomaly_detector.model
     data_list = anomaly_detector.data
     data_series = pd.Series(data=[data_point for _, data_point in data_list], index=[timestamp.replace(microsecond=0) for timestamp, _ in data_list]).sort_index()
