@@ -139,6 +139,13 @@ class Operator(util.OperatorBase):
             elif self.todatetime(data['energy_time']).tz_localize(None)-self.anomaly_detector.first_data_time >= pd.Timedelta(1, 'days'):
                 self.anomaly_detector.device_type = self.get_device_type(self.anomaly_detector.data)
                 print(self.anomaly_detector.device_type)
+                if self.anomaly_detector.device_type == 'cont_device':
+                    if os.path.exists(self.model_file_path):
+                        self.anomaly_detector.model.load_state_dict(torch.load(self.model_file_path))
+                elif self.anomaly_detector.device_type == 'load_device':
+                    if os.path.exists(self.anomaly_detector_loads_path):
+                        with open(self.anomaly_detector_loads_path, 'rb') as f:
+                            self.anomaly_detector.loads = pickle.load(f)
         if self.todatetime(data['energy_time']).tz_localize(None)<self.anomaly_detector.initial_time-pd.Timedelta(2,'hours'):
             return
         use_cuda = torch.cuda.is_available()
