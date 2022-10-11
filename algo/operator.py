@@ -46,7 +46,7 @@ class Operator(util.OperatorBase):
         self.anomaly_detector = anom_detector.Anomaly_Detector(device_id)
 
         if os.path.exists(self.anomaly_detector_data_path):
-            df = pd.read_parquet('_anomaly_detector_data.parquet')
+            df = pd.read_parquet(self.anomaly_detector_data_path)
             df.index = pd.to_datetime(df.index)
             data_series = pd.Series(data=df['power_values'], index=df.index)
             data_series = df[~df.index.duplicated(keep='first')]
