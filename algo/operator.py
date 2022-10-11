@@ -135,6 +135,10 @@ class Operator(util.OperatorBase):
             self.anomaly_detector.data.append([self.todatetime(data['energy_time']).tz_localize(None), float(data['energy'])])
         if self.anomaly_detector.device_type == None:
             if self.todatetime(data['energy_time']).tz_localize(None)-self.anomaly_detector.first_data_time < pd.Timedelta(1, 'days'):
+                if os.path.exists(self.anomaly_detector_device_type_path):
+                    with open(self.anomaly_detector_device_type_path, 'rb') as f:
+                        self.anomaly_detector.device_type = pickle.load(f)
+                    print(self.anomaly_detector.device_type)
                 return
             elif self.todatetime(data['energy_time']).tz_localize(None)-self.anomaly_detector.first_data_time >= pd.Timedelta(1, 'days'):
                 self.anomaly_detector.device_type = self.get_device_type(self.anomaly_detector.data)
@@ -147,6 +151,7 @@ class Operator(util.OperatorBase):
                     if os.path.exists(self.anomaly_detector_loads_path):
                         with open(self.anomaly_detector_loads_path, 'rb') as f:
                             self.anomaly_detector.loads = pickle.load(f)
+                        print('Pretrained model loaded!')
         if self.todatetime(data['energy_time']).tz_localize(None)<self.anomaly_detector.initial_time-pd.Timedelta(2,'hours'):
             return
         use_cuda = torch.cuda.is_available()
