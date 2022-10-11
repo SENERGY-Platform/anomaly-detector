@@ -125,7 +125,7 @@ def get_area_errors(model_input_data_array, model, use_cuda):
     model.train()
     return errors
 
-def get_curve_length_measure_errors(model_input_data_array, model, use_cuda):
+def get_pcm_errors(model_input_data_array, model, use_cuda):
     errors = []
     model.eval()
     for data_series in model_input_data_array:
@@ -136,10 +136,10 @@ def get_curve_length_measure_errors(model_input_data_array, model, use_cuda):
         x = np.linspace(0,int(len(data_series)/2)-1,int(len(data_series)/2))
         y_1 = np.squeeze(model_output.detach().cpu().numpy())[0:int(len(data_series)/2)]
         y_2 = data_series[0:int(len(data_series)/2)]
-        errors.append(similaritymeasures.curve_length_measure(np.column_stack((x,y_1)), np.column_stack((x,y_2))))
+        errors.append(similaritymeasures.pcm(np.column_stack((x,y_1)), np.column_stack((x,y_2))))
         z_1 = np.squeeze(model_output.detach().cpu().numpy())[len(data_series)-int(len(data_series)/2):]
         z_2 = data_series[len(data_series)-int(len(data_series)/2):]
-        errors.append(similaritymeasures.curve_length_measure(np.column_stack((x,z_1)), np.column_stack((x,z_2))))
+        errors.append(similaritymeasures.pcm(np.column_stack((x,z_1)), np.column_stack((x,z_2))))
     model.train()
     return errors
 
@@ -190,9 +190,9 @@ def test(data_list, anomaly_detector, use_cuda, model_input_window_length=205):
     data_series_smooth = preprocessing.smooth_data(data_series)
     model_input_data_array = preprocessing.decompose_into_time_windows(data_series_smooth, model_input_window_length)
     reconstruction_area_errors = get_area_errors(model_input_data_array, anomaly_detector.model, use_cuda)
-    #reconstruction_curve_length_measure_errors = get_curve_length_measure_errors(model_input_data_array, anomaly_detector.model, use_cuda)
+    reconstruction_pcm_errors = get_pcm_errors(model_input_data_array, anomaly_detector.model, use_cuda)
     reconstruction_dtw_errors = get_dtw_errors(model_input_data_array, anomaly_detector.model, use_cuda)
-    anomalous_reconstruction_indices = error_calculation.get_anomalous_indices(reconstruction_dtw_errors)+error_calculation.get_anomalous_indices(reconstruction_area_errors)
+    anomalous_reconstruction_indices = error_calculation.get_anomalous_indices(reconstruction_pcm_errors,0.03)+error_calculation.get_anomalous_indices(reconstruction_dtw_errors,0.05)+error_calculation.get_anomalous_indices(reconstruction_area_errors,0.01)
     if 2*model_input_data_array.shape[0]-1 in anomalous_reconstruction_indices:
         anomalous_time_window = data_series[-model_input_window_length:]
         anomalous_time_window_smooth = data_series_smooth[-model_input_window_length:]

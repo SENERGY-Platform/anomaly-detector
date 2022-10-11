@@ -2,9 +2,9 @@ import numpy as np
 from sklearn.ensemble import IsolationForest
 from statistics import median
 
-def get_anomalous_indices(list_of_errors):
+def get_anomalous_indices(list_of_errors,contam):
     anomalous_indices = []
-    anomalous_error_model = IsolationForest(contamination=0.04).fit(np.array(list_of_errors).reshape(-1,1))
+    anomalous_error_model = IsolationForest(contamination=contam).fit(np.array(list_of_errors).reshape(-1,1))
     predictions = anomalous_error_model.predict(np.array(list_of_errors).reshape(-1,1))
     for i in range(len(list_of_errors)):
         if predictions[i]==-1 and list_of_errors[i]>median(list_of_errors):
