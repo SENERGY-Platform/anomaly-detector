@@ -50,8 +50,8 @@ class Operator(util.OperatorBase):
             df.index = pd.to_datetime(df.index)
             data_series = pd.Series(data=df['power_values'], index=df.index)
             data_series = df[~df.index.duplicated(keep='first')]
-        for time_stamp, power_value in data_series.items():
-            self.anomaly_detector.data.append([self.todatetime(time_stamp), float(power_value)])
+        for i in len(data_series.index):
+            self.anomaly_detector.data.append([self.todatetime(data_series.index[i]), float(data_series.iloc[i])])
 
         if os.path.exists(self.anomaly_detector_device_type_path):
             with open(self.anomaly_detector_device_type_path, 'rb') as f:
