@@ -45,7 +45,7 @@ class Operator(util.OperatorBase):
 
         self.anomaly_detector = anom_detector.Anomaly_Detector(device_id)
 
-        '''if os.path.exists(self.anomaly_detector_data_path):
+        if os.path.exists(self.anomaly_detector_data_path):
             df = pd.read_parquet(self.anomaly_detector_data_path)
             df.index = pd.to_datetime(df.index)
             data_series = pd.Series(data=df['power_values'], index=df.index)
@@ -69,7 +69,7 @@ class Operator(util.OperatorBase):
                 if os.path.exists(self.anomaly_detector_loads_path):
                     with open(self.anomaly_detector_loads_path, 'rb') as f:
                         self.anomaly_detector.loads = pickle.load(f)
-                    print('List of loads from the past loaded!')'''
+                    print('List of loads from the past loaded!')
                     
 
     def todatetime(self, timestamp):
