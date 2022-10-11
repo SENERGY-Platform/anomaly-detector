@@ -52,6 +52,7 @@ class Operator(util.OperatorBase):
             data_series = df[~df.index.duplicated(keep='first')]
             for i in range(len(data_series.index)):
                 self.anomaly_detector.data.append([self.todatetime(data_series.index[i]), float(data_series.iloc[i])])
+            print(len(data_series.index))
             print('Old data loaded.')
         
 
