@@ -45,6 +45,14 @@ class Operator(util.OperatorBase):
 
         self.anomaly_detector = anom_detector.Anomaly_Detector(device_id)
 
+        if os.path.exists(self.anomaly_detector_data_path):
+            df = pd.read_parquet('_anomaly_detector_data.parquet')
+            df.index = pd.to_datetime(df.index)
+            data_series = pd.Series(data=df['power_values'], index=df.index)
+            data_series = df[~df.index.duplicated(keep='first')]
+        for time_stamp, power_value in data_series.items():
+            self.anomaly_detector.data.append([self.todatetime(time_stamp), float(power_value)])
+
         if os.path.exists(self.anomaly_detector_device_type_path):
             with open(self.anomaly_detector_device_type_path, 'rb') as f:
                 self.anomaly_detector.device_type = pickle.load(f)
