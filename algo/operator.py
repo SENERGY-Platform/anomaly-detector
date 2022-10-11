@@ -141,6 +141,7 @@ class Operator(util.OperatorBase):
                 print(self.anomaly_detector.device_type)
                 if self.anomaly_detector.device_type == 'cont_device':
                     if os.path.exists(self.model_file_path):
+                        self.anomaly_detector.model = cont_device.Autoencoder(32)
                         self.anomaly_detector.model.load_state_dict(torch.load(self.model_file_path))
                 elif self.anomaly_detector.device_type == 'load_device':
                     if os.path.exists(self.anomaly_detector_loads_path):
