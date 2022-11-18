@@ -115,13 +115,10 @@ def get_area_errors(model_input_data_array, model, use_cuda):
         if use_cuda:
             model_input = model_input.cuda()
         model_output = model(model_input)
-        x = np.linspace(0,int(len(data_series)/2)-1,int(len(data_series)/2))
-        y_1 = np.squeeze(model_output.detach().cpu().numpy())[0:int(len(data_series)/2)]
-        y_2 = data_series[0:int(len(data_series)/2)]
+        x = np.linspace(0,len(data_series)-1,len(data_series))
+        y_1 = np.squeeze(model_output.detach().cpu().numpy())
+        y_2 = data_series
         errors.append(similaritymeasures.area_between_two_curves(np.column_stack((x,y_1)), np.column_stack((x,y_2))))
-        z_1 = np.squeeze(model_output.detach().cpu().numpy())[len(data_series)-int(len(data_series)/2):]
-        z_2 = data_series[len(data_series)-int(len(data_series)/2):]
-        errors.append(similaritymeasures.area_between_two_curves(np.column_stack((x,z_1)), np.column_stack((x,z_2))))
     model.train()
     return errors
 
@@ -133,13 +130,10 @@ def get_pcm_errors(model_input_data_array, model, use_cuda):
         if use_cuda:
             model_input = model_input.cuda()
         model_output = model(model_input)
-        x = np.linspace(0,int(len(data_series)/2)-1,int(len(data_series)/2))
-        y_1 = np.squeeze(model_output.detach().cpu().numpy())[0:int(len(data_series)/2)]
-        y_2 = data_series[0:int(len(data_series)/2)]
+        x = np.linspace(0,len(data_series)-1,len(data_series))
+        y_1 = np.squeeze(model_output.detach().cpu().numpy())
+        y_2 = data_series
         errors.append(similaritymeasures.pcm(np.column_stack((x,y_1)), np.column_stack((x,y_2))))
-        z_1 = np.squeeze(model_output.detach().cpu().numpy())[len(data_series)-int(len(data_series)/2):]
-        z_2 = data_series[len(data_series)-int(len(data_series)/2):]
-        errors.append(similaritymeasures.pcm(np.column_stack((x,z_1)), np.column_stack((x,z_2))))
     model.train()
     return errors
 
@@ -151,35 +145,12 @@ def get_dtw_errors(model_input_data_array, model, use_cuda):
         if use_cuda:
             model_input = model_input.cuda()
         model_output = model(model_input)
-        x = np.linspace(0,int(len(data_series)/2)-1,int(len(data_series)/2))
-        y_1 = np.squeeze(model_output.detach().cpu().numpy())[0:int(len(data_series)/2)]
-        y_2 = data_series[0:int(len(data_series)/2)]
+        x = np.linspace(0,len(data_series)-1,len(data_series))
+        y_1 = np.squeeze(model_output.detach().cpu().numpy())
+        y_2 = data_series
         errors.append(similaritymeasures.dtw(np.column_stack((x,y_1)), np.column_stack((x,y_2)), metric='canberra')[0])
-        z_1 = np.squeeze(model_output.detach().cpu().numpy())[len(data_series)-int(len(data_series)/2):]
-        z_2 = data_series[len(data_series)-int(len(data_series)/2):]
-        errors.append(similaritymeasures.dtw(np.column_stack((x,z_1)), np.column_stack((x,z_2)), metric='canberra')[0])
     model.train()
     return errors
-
-'''def get_anomalous_part(anomalous_time_window, model, use_cuda, short_time_length=50):
-    array_of_short_parts = []
-    array_of_approx_short_parts = []
-
-    for start in range(0,len(anomalous_time_window),short_time_length):
-        if start+short_time_length <= 405:
-            array_of_short_parts.append(anomalous_time_window[start:start+short_time_length])
-            if use_cuda:
-                approx_time_window = model(torch.Tensor(anomalous_time_window).cuda()).detach().cpu().numpy()
-            else:
-                approx_time_window = model(torch.Tensor(anomalous_time_window)).detach().cpu().numpy()
-            array_of_approx_short_parts.append(approx_time_window[0,start:start+short_time_length])
-    array_of_short_parts = np.array(array_of_short_parts)
-    array_of_approx_short_parts = np.array(array_of_approx_short_parts)
-
-    errors = []       
-    for i in range(len(array_of_short_parts)):
-        errors.append(integrate.simpson(abs(array_of_short_parts[i]-array_of_approx_short_parts[i])).item(0))
-    return array_of_short_parts[np.argmax(errors)]'''
 
 def test(data_list, anomaly_detector, use_cuda, model_input_window_length=205):
     anomaly_detector.model.eval()
@@ -192,15 +163,41 @@ def test(data_list, anomaly_detector, use_cuda, model_input_window_length=205):
     reconstruction_area_errors = get_area_errors(model_input_data_array, anomaly_detector.model, use_cuda)
     reconstruction_pcm_errors = get_pcm_errors(model_input_data_array, anomaly_detector.model, use_cuda)
     reconstruction_dtw_errors = get_dtw_errors(model_input_data_array, anomaly_detector.model, use_cuda)
-    anomalous_reconstruction_indices = error_calculation.get_anomalous_indices(reconstruction_pcm_errors,0.03)+error_calculation.get_anomalous_indices(reconstruction_dtw_errors,0.05)+error_calculation.get_anomalous_indices(reconstruction_area_errors,0.01)
-    if 2*model_input_data_array.shape[0]-1 in anomalous_reconstruction_indices:
+    anomalous_reconstruction_area_errors = error_calculation.get_anomalous_indices(reconstruction_area_errors,0.01)
+    anomalous_reconstruction_pcm_errors = error_calculation.get_anomalous_indices(reconstruction_pcm_errors,0.03)
+    anomalous_reconstruction_dtw_errors = error_calculation.get_anomalous_indices(reconstruction_dtw_errors,0.05)
+    #anomalous_reconstruction_indices = error_calculation.get_anomalous_indices(reconstruction_pcm_errors,0.03)+error_calculation.get_anomalous_indices(reconstruction_dtw_errors,0.05)+error_calculation.get_anomalous_indices(reconstruction_area_errors,0.01)
+    if model_input_data_array.shape[0]-1 in anomalous_reconstruction_area_errors:
         anomalous_time_window = data_series[-model_input_window_length:]
         anomalous_time_window_smooth = data_series_smooth[-model_input_window_length:]
         anomalous_time_window_smooth_short = data_series_smooth[-int(model_input_window_length/2):]
         anomaly_detector.anomalies.append((anomalous_time_window,
                                            anomalous_time_window_smooth,
-                                           anomalous_time_window_smooth_short))
-        print('An anomaly has just occurred!')
+                                           anomalous_time_window_smooth_short,
+                                           'area'))
+        print('An anomaly has just occurred! (area error)')
+        anomaly_detector.model.train()
+        return 1
+    if model_input_data_array.shape[0]-1 in anomalous_reconstruction_pcm_errors:
+        anomalous_time_window = data_series[-model_input_window_length:]
+        anomalous_time_window_smooth = data_series_smooth[-model_input_window_length:]
+        anomalous_time_window_smooth_short = data_series_smooth[-int(model_input_window_length/2):]
+        anomaly_detector.anomalies.append((anomalous_time_window,
+                                           anomalous_time_window_smooth,
+                                           anomalous_time_window_smooth_short,
+                                           'pcm'))
+        print('An anomaly has just occurred! (pcm error)')
+        anomaly_detector.model.train()
+        return 1
+    if model_input_data_array.shape[0]-1 in anomalous_reconstruction_dtw_errors:
+        anomalous_time_window = data_series[-model_input_window_length:]
+        anomalous_time_window_smooth = data_series_smooth[-model_input_window_length:]
+        anomalous_time_window_smooth_short = data_series_smooth[-int(model_input_window_length/2):]
+        anomaly_detector.anomalies.append((anomalous_time_window,
+                                           anomalous_time_window_smooth,
+                                           anomalous_time_window_smooth_short,
+                                           'dtw'))
+        print('An anomaly has just occurred! (dtw error)')
         anomaly_detector.model.train()
         return 1
     else:

@@ -146,8 +146,6 @@ class Operator(util.OperatorBase):
             pickle.dump(self.anomaly_detector.loads, f)
     
     def run(self, data, selector='energy_func'):
-        if pd.Timedelta(100, 'days')+self.todatetime(data['energy_time']).tz_localize(None)<self.anomaly_detector.initial_time:
-            return
         if os.getenv("DEBUG") is not None and os.getenv("DEBUG").lower() == "true":
             print(selector + ": " + 'energy: '+str(data['energy'])+'  '+'time: '+str(self.todatetime(data['energy_time']).tz_localize(None)))
         if self.anomaly_detector.first_data_time == None:
@@ -155,19 +153,13 @@ class Operator(util.OperatorBase):
             self.anomaly_detector.last_training_time = self.anomaly_detector.first_data_time
             self.anomaly_detector.data.append([self.todatetime(data['energy_time']).tz_localize(None), float(data['energy'])])
             return
-        if self.anomaly_detector.data[0][0]+pd.Timedelta(100, 'days') > self.todatetime(data['energy_time']).tz_localize(None):
-            self.anomaly_detector.data.append([self.todatetime(data['energy_time']).tz_localize(None), float(data['energy'])])
-        elif self.anomaly_detector.data[0][0]+pd.Timedelta(100, 'days') <= self.todatetime(data['energy_time']).tz_localize(None):
-            self.anomaly_detector.data.pop(0)
-            self.anomaly_detector.data.append([self.todatetime(data['energy_time']).tz_localize(None), float(data['energy'])])
         if self.anomaly_detector.device_type == None:
             if self.todatetime(data['energy_time']).tz_localize(None)-self.anomaly_detector.first_data_time < pd.Timedelta(1, 'days'):
                 return
             elif self.todatetime(data['energy_time']).tz_localize(None)-self.anomaly_detector.first_data_time >= pd.Timedelta(1, 'days'):
                 self.anomaly_detector.device_type = self.get_device_type(self.anomaly_detector.data)
                 print(self.anomaly_detector.device_type)
-        if self.todatetime(data['energy_time']).tz_localize(None)<self.anomaly_detector.initial_time-pd.Timedelta(2,'hours'):
-            return
+        self.anomaly_detector.data.append([self.todatetime(data['energy_time']).tz_localize(None), float(data['energy'])])
         use_cuda = torch.cuda.is_available()
         self.batch_train(data, use_cuda)
         output = self.test(use_cuda)
