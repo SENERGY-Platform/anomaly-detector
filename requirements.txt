@@ -8,7 +8,7 @@ kazoo<3
 astral
 pytz
 scipy
-sklearn
+scikit-learn
 tqdm
 similaritymeasures
 pyarrow
