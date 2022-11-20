@@ -112,7 +112,7 @@ class Operator(util.OperatorBase):
             pass
 
     def test(self, use_cuda):
-        if self.anomaly_detector.device_type == 'cont_device' and self.anomaly_detector.last_training_time > self.anomaly_detector.initial_time:
+        if self.anomaly_detector.device_type == 'cont_device' and self.anomaly_detector.last_training_time > self.anomaly_detector.first_data_time:
             output = cont_device.test(self.anomaly_detector.data, self.anomaly_detector, use_cuda)
             return output
         elif self.anomaly_detector.device_type == 'load_device':
