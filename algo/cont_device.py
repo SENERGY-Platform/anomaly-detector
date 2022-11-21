@@ -167,7 +167,7 @@ def test(data_list, anomaly_detector, use_cuda, model_input_window_length=205):
     anomalous_reconstruction_pcm_errors = error_calculation.get_anomalous_indices(reconstruction_pcm_errors,0.1)
     anomalous_reconstruction_dtw_errors = error_calculation.get_anomalous_indices(reconstruction_dtw_errors,0.1)
     #anomalous_reconstruction_indices = error_calculation.get_anomalous_indices(reconstruction_pcm_errors,0.03)+error_calculation.get_anomalous_indices(reconstruction_dtw_errors,0.05)+error_calculation.get_anomalous_indices(reconstruction_area_errors,0.01)
-    if model_input_data_array.shape[0]-1 in anomalous_reconstruction_area_errors:
+    '''if model_input_data_array.shape[0]-1 in anomalous_reconstruction_area_errors:
         anomalous_time_window = data_series[-model_input_window_length:]
         anomalous_time_window_smooth = data_series_smooth[-model_input_window_length:]
         anomalous_time_window_smooth_short = data_series_smooth[-int(model_input_window_length/2):]
@@ -188,7 +188,7 @@ def test(data_list, anomaly_detector, use_cuda, model_input_window_length=205):
                                            'pcm'))
         print('An anomaly has just occurred! (pcm error)')
         anomaly_detector.model.train()
-        return 1
+        return 1'''
     if model_input_data_array.shape[0]-1 in anomalous_reconstruction_dtw_errors:
         anomalous_time_window = data_series[-model_input_window_length:]
         anomalous_time_window_smooth = data_series_smooth[-model_input_window_length:]
