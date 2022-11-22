@@ -202,7 +202,7 @@ def test(data_list, anomaly_detector, use_cuda, model_input_window_length=205):
         return 1
     else:
         anomaly_detector.model.train()
-        return 0
+        return 
     
 
 
