@@ -67,7 +67,7 @@ def train_test(anomaly_detector, model_file_path):
         if len(anomaly_detector.loads)-1 in anomalous_length_indices:
             anomaly_detector.anomalies.append((anomaly_detector.loads[-1],'length of load'))
             print('A load of anomalous length just ended!')
-            return 2
+            return 'load_device_anomaly_length'
         array_of_normalized_loads = padding(list_of_normalized_loads, max([len(load) for load in list_of_normalized_loads]))
         model=IsolationForest()
         model.fit(array_of_normalized_loads)
@@ -77,8 +77,9 @@ def train_test(anomaly_detector, model_file_path):
         if predictions[-1] < 0:
             anomaly_detector.anomalies.append((anomaly_detector.loads[-1],'load'))
             print('A load with an anomalous power curve just ended!')
-            return 1
-    return 0
+            return 'load_device_anomaly_power_curve'
+        return None
+    return None
     
 
     

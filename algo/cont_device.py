@@ -199,10 +199,10 @@ def test(data_list, anomaly_detector, use_cuda, model_input_window_length=205):
                                            'dtw'))
         print('An anomaly has just occurred! (dtw error)')
         anomaly_detector.model.train()
-        return 1
+        return 'cont_device_anomaly'
     else:
         anomaly_detector.model.train()
-        return 
+        return None
     
 
 

@@ -32,6 +32,8 @@ class Operator(util.OperatorBase):
 
         self.device_id = device_id
 
+        self.anomaly_in_last_datapoint = False
+
         self.model_file_path = f'{data_path}/{self.device_id}_model.pt'
         self.anomaly_detector_data_path = f'{data_path}/{self.device_id}_anomaly_detector_data.parquet'
         self.anomaly_detector_initial_time_path = f'{data_path}/{self.device_id}_anomaly_detector_initial_time.pickle'
@@ -146,22 +148,36 @@ class Operator(util.OperatorBase):
             pickle.dump(self.anomaly_detector.loads, f)
     
     def run(self, data, selector='energy_func'):
+        timestamp = self.todatetime(data['energy_time']).tz_localize(None)
         if os.getenv("DEBUG") is not None and os.getenv("DEBUG").lower() == "true":
-            print('energy: '+str(data['energy'])+'  '+'time: '+str(self.todatetime(data['energy_time']).tz_localize(None)))
+            print('energy: '+str(data['energy'])+'  '+'time: '+str(timestamp))
         if self.anomaly_detector.first_data_time == None:
-            self.anomaly_detector.first_data_time = self.todatetime(data['energy_time']).tz_localize(None)
+            self.anomaly_detector.first_data_time = timestamp
             self.anomaly_detector.last_training_time = self.anomaly_detector.first_data_time
-            self.anomaly_detector.data.append([self.todatetime(data['energy_time']).tz_localize(None), float(data['energy'])])
+            self.anomaly_detector.data.append([timestamp, float(data['energy'])])
             return
         if self.anomaly_detector.device_type == None:
-            if self.todatetime(data['energy_time']).tz_localize(None)-self.anomaly_detector.first_data_time < pd.Timedelta(1, 'days'):
+            if timestamp-self.anomaly_detector.first_data_time < pd.Timedelta(1, 'days'):
                 return
-            elif self.todatetime(data['energy_time']).tz_localize(None)-self.anomaly_detector.first_data_time >= pd.Timedelta(1, 'days'):
+            elif timestamp-self.anomaly_detector.first_data_time >= pd.Timedelta(1, 'days'):
                 self.anomaly_detector.device_type = self.get_device_type(self.anomaly_detector.data)
                 print(self.anomaly_detector.device_type)
-        self.anomaly_detector.data.append([self.todatetime(data['energy_time']).tz_localize(None), float(data['energy'])])
+        self.anomaly_detector.data.append([timestamp, float(data['energy'])])
         use_cuda = torch.cuda.is_available()
         self.batch_train(data, use_cuda)
-        output = self.test(use_cuda)
+        test_result = self.test(use_cuda)
         self.save_data()
-        return output
+        if self.anomaly_in_last_datapoint==False:
+            if test_result=='cont_device_anomaly':
+                time_window_start = timestamp-pd.Timedelta(3,'hour')
+                self.anomaly_in_last_datapoint = True
+                return f'In der Zeit seit {str(time_window_start)} wurde beim Gerät eine Anomalie im Lastprofil festgestellt.'
+            elif test_result=='load_device_anomaly_power_curve':
+                self.anomaly_in_last_datapoint = True
+                return f'{timestamp.strftime('%Y-%m-%d %X')} \n Bei der letztem Benutzung des Geräts wurde eine Anomalie im Lastprofil festgestellt.'
+            elif test_result=='load_device_anomaly_length':
+                self.anomaly_in_last_datapoint = True
+                return f'{timestamp.strftime('%Y-%m-%d %X')} \n Bei der letztem Benutzung des Geräts wurde eine ungewöhnliche Laufdauer festgestellt.'
+        elif self.anomaly_in_last_datapoint==True:
+            if test_result==None:
+                self.anomaly_in_last_datapoint = False
