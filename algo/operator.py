@@ -32,7 +32,6 @@ class Operator(util.OperatorBase):
 
         self.device_id = device_id
 
-        self.anomaly_in_last_datapoint = False
 
         self.model_file_path = f'{data_path}/{self.device_id}_model.pt'
         self.anomaly_detector_data_path = f'{data_path}/{self.device_id}_anomaly_detector_data.parquet'
@@ -167,17 +166,13 @@ class Operator(util.OperatorBase):
         self.batch_train(data, use_cuda)
         test_result = self.test(use_cuda)
         self.save_data()
-        if self.anomaly_in_last_datapoint==False:
-            if test_result=='cont_device_anomaly':
-                time_window_start = timestamp-pd.Timedelta(3,'hour')
-                self.anomaly_in_last_datapoint = True
-                return {'anomaly': f'In der Zeit seit {str(time_window_start)} wurde beim Gerät eine Anomalie im Lastprofil festgestellt.'}
-            elif test_result=='load_device_anomaly_power_curve':
-                self.anomaly_in_last_datapoint = True
-                return {'anomaly':f'Bei der letzten Benutzung des Geräts wurde eine Anomalie im Lastprofil festgestellt.'}
-            elif test_result=='load_device_anomaly_length':
-                self.anomaly_in_last_datapoint = True
-                return {'anomaly':f'Bei der letzten Benutzung des Geräts wurde eine ungewöhnliche Laufdauer festgestellt.'}
-        elif self.anomaly_in_last_datapoint==True:
-            if test_result==None:
-                self.anomaly_in_last_datapoint = False
+        if test_result=='cont_device_anomaly':
+            time_window_start = timestamp-pd.Timedelta(3,'hour')
+            return {'anomaly': f'Nachricht vom {str(timestamp.date)} um {timestamp.hour}:{timestamp.minute} Uhr: \n In der Zeit seit {str(time_window_start)} wurde beim Gerät eine Anomalie im Lastprofil festgestellt.'}
+        elif test_result=='load_device_anomaly_power_curve':
+            return {'anomaly':f'Nachricht vom {str(timestamp.date)} um {timestamp.hour}:{timestamp.minute} Uhr: \n Bei der letzten Benutzung des Geräts wurde eine Anomalie im Lastprofil festgestellt.'}
+        elif test_result=='load_device_anomaly_length':
+            self.anomaly_in_last_datapoint = True
+            return {'anomaly':f'Nachricht vom {str(timestamp.date)} um {timestamp.hour}:{timestamp.minute} Uhr: \n Bei der letzten Benutzung des Geräts wurde eine ungewöhnliche Laufdauer festgestellt.'}
+        else:
+            return {'anomaly': f'Nachricht vom {str(timestamp.date)} um {timestamp.hour}:{timestamp.minute} Uhr: \n in letzter Zeit wurde keine Anomalie im Lastprofil festgestellt.'}
