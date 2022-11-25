@@ -170,17 +170,15 @@ class Operator(util.OperatorBase):
         self.save_data()
         if test_result=='cont_device_anomaly':
             if self.anomaly_in_last_datapoint==False:
-                time_window_start = timestamp-pd.Timedelta(3,'hour')
+                time_window_start = timestamp-pd.Timedelta(1,'hour')
                 self.anomaly_in_last_datapoint=True
-                return {'anomaly': f'Nachricht vom {str(timestamp.date)} um {str(timestamp.hour)}:{str(timestamp.minute)} Uhr: In der Zeit seit {str(time_window_start)} wurde beim Gerät eine Anomalie im Lastprofil festgestellt.'}
+                return {'anomaly': f'Nachricht vom {str(timestamp.date())} um {str(timestamp.hour)}:{str(timestamp.minute)} Uhr: In der Zeit seit {str(time_window_start)} wurde beim Gerät eine Anomalie im Lastprofil festgestellt.'}
             elif self.anomaly_in_last_datapoint==True:
                 return
         elif test_result=='load_device_anomaly_power_curve':
-            return {'anomaly':f'Nachricht vom {str(timestamp.date)} um {str(timestamp.hour)}:{str(timestamp.minute)} Uhr: Bei der letzten Benutzung des Geräts wurde eine Anomalie im Lastprofil festgestellt.'}
+            return {'anomaly':f'Nachricht vom {str(timestamp.date())} um {str(timestamp.hour)}:{str(timestamp.minute)} Uhr: Bei der letzten Benutzung des Geräts wurde eine Anomalie im Lastprofil festgestellt.'}
         elif test_result=='load_device_anomaly_length':
-            return {'anomaly':f'Nachricht vom {str(timestamp.date)} um {str(timestamp.hour)}:{str(timestamp.minute)} Uhr: Bei der letzten Benutzung des Geräts wurde eine ungewöhnliche Laufdauer festgestellt.'}
+            return {'anomaly':f'Nachricht vom {str(timestamp.date())} um {str(timestamp.hour)}:{str(timestamp.minute)} Uhr: Bei der letzten Benutzung des Geräts wurde eine ungewöhnliche Laufdauer festgestellt.'}
         else:
-            if self.anomaly_in_last_datapoint==True:
-                return {'anomaly': f'Nachricht vom {str(timestamp.date)} um {str(timestamp.hour)}:{str(timestamp.minute)} Uhr: In letzter Zeit wurde keine Anomalie im Lastprofil festgestellt.'}
-            else:
-                return
+            self.anomaly_in_last_datapoint=False
+            return
