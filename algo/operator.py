@@ -168,10 +168,10 @@ class Operator(util.OperatorBase):
         self.save_data()
         if test_result=='cont_device_anomaly':
             time_window_start = timestamp-pd.Timedelta(3,'hour')
-            return {'anomaly': f'Nachricht vom {str(timestamp.date)} um {timestamp.hour}:{timestamp.minute} Uhr: \n In der Zeit seit {str(time_window_start)} wurde beim Gerät eine Anomalie im Lastprofil festgestellt.'}
+            return {'anomaly': f'Nachricht vom {str(timestamp.date)} um {timestamp.hour}:{timestamp.minute} Uhr: In der Zeit seit {str(time_window_start)} wurde beim Gerät eine Anomalie im Lastprofil festgestellt.'}
         elif test_result=='load_device_anomaly_power_curve':
-            return {'anomaly':f'Nachricht vom {str(timestamp.date)} um {timestamp.hour}:{timestamp.minute} Uhr: \n Bei der letzten Benutzung des Geräts wurde eine Anomalie im Lastprofil festgestellt.'}
+            return {'anomaly':f'Nachricht vom {str(timestamp.date)} um {timestamp.hour}:{timestamp.minute} Uhr: Bei der letzten Benutzung des Geräts wurde eine Anomalie im Lastprofil festgestellt.'}
         elif test_result=='load_device_anomaly_length':
-            return {'anomaly':f'Nachricht vom {str(timestamp.date)} um {timestamp.hour}:{timestamp.minute} Uhr: \n Bei der letzten Benutzung des Geräts wurde eine ungewöhnliche Laufdauer festgestellt.'}
+            return {'anomaly':f'Nachricht vom {str(timestamp.date)} um {timestamp.hour}:{timestamp.minute} Uhr: Bei der letzten Benutzung des Geräts wurde eine ungewöhnliche Laufdauer festgestellt.'}
         else:
-            return {'anomaly': f'Nachricht vom {str(timestamp.date)} um {timestamp.hour}:{timestamp.minute} Uhr: \n in letzter Zeit wurde keine Anomalie im Lastprofil festgestellt.'}
+            return {'anomaly': f'Nachricht vom {str(timestamp.date)} um {timestamp.hour}:{timestamp.minute} Uhr: In letzter Zeit wurde keine Anomalie im Lastprofil festgestellt.'}
