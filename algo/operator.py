@@ -172,7 +172,6 @@ class Operator(util.OperatorBase):
         elif test_result=='load_device_anomaly_power_curve':
             return {'anomaly':f'Nachricht vom {str(timestamp.date)} um {timestamp.hour}:{timestamp.minute} Uhr: \n Bei der letzten Benutzung des Geräts wurde eine Anomalie im Lastprofil festgestellt.'}
         elif test_result=='load_device_anomaly_length':
-            self.anomaly_in_last_datapoint = True
             return {'anomaly':f'Nachricht vom {str(timestamp.date)} um {timestamp.hour}:{timestamp.minute} Uhr: \n Bei der letzten Benutzung des Geräts wurde eine ungewöhnliche Laufdauer festgestellt.'}
         else:
             return {'anomaly': f'Nachricht vom {str(timestamp.date)} um {timestamp.hour}:{timestamp.minute} Uhr: \n in letzter Zeit wurde keine Anomalie im Lastprofil festgestellt.'}
