@@ -26,11 +26,13 @@ from . import anom_detector, cont_device, load_device
 
 
 class Operator(util.OperatorBase):
-    def __init__(self, device_id, data_path):
+    def __init__(self, device_id, data_path, device_name='Gerät'):
         if not os.path.exists(data_path):
             os.mkdir(data_path)
 
         self.device_id = device_id
+
+        self.device_name = device_name
 
         self.anomaly_in_last_datapoint = False
 
@@ -172,13 +174,13 @@ class Operator(util.OperatorBase):
             if self.anomaly_in_last_datapoint==False:
                 time_window_start = (timestamp-pd.Timedelta(1,'hour')).floor('min')
                 self.anomaly_in_last_datapoint=True
-                return {'anomaly': f'Nachricht vom {str(timestamp.date())} um {str(timestamp.hour)}:{str(timestamp.minute)} Uhr: In der Zeit seit {str(time_window_start)} wurde beim Gerät eine Anomalie im Lastprofil festgestellt.'}
+                return {'anomaly': f'Nachricht vom {str(timestamp.date())} um {str(timestamp.hour)}:{str(timestamp.minute)} Uhr: In der Zeit seit {str(time_window_start)} wurde beim {self.device_name} eine Anomalie im Lastprofil festgestellt.'}
             elif self.anomaly_in_last_datapoint==True:
                 return
         elif test_result=='load_device_anomaly_power_curve':
-            return {'anomaly':f'Nachricht vom {str(timestamp.date())} um {str(timestamp.hour)}:{str(timestamp.minute)} Uhr: Bei der letzten Benutzung des Geräts wurde eine Anomalie im Lastprofil festgestellt.'}
+            return {'anomaly':f'Nachricht vom {str(timestamp.date())} um {str(timestamp.hour)}:{str(timestamp.minute)} Uhr: Bei der letzten Benutzung vom {self.device_name} wurde eine Anomalie im Lastprofil festgestellt.'}
         elif test_result=='load_device_anomaly_length':
-            return {'anomaly':f'Nachricht vom {str(timestamp.date())} um {str(timestamp.hour)}:{str(timestamp.minute)} Uhr: Bei der letzten Benutzung des Geräts wurde eine ungewöhnliche Laufdauer festgestellt.'}
+            return {'anomaly':f'Nachricht vom {str(timestamp.date())} um {str(timestamp.hour)}:{str(timestamp.minute)} Uhr: Bei der letzten Benutzung vom {self.device_name} wurde eine ungewöhnliche Laufdauer festgestellt.'}
         else:
             self.anomaly_in_last_datapoint=False
             return

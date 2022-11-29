@@ -48,7 +48,8 @@ if __name__ == '__main__':
     kafka_producer = confluent_kafka.Producer(kafka_producer_config, logger=util.logger)
     operator = algo.Operator(
         device_id=opr_config.config.device_id,
-        data_path=opr_config.config.data_path
+        data_path=opr_config.config.data_path,
+        device_name=opr_config.config.device_name
     )
     operator.init(
         kafka_consumer=kafka_consumer,

@@ -33,6 +33,7 @@ class Selector(simple_struct.Structure):
 class Config(simple_struct.Structure):
     device_id: str = None
     data_path = "/opt/data"
+    device_name: str = None
     logger_level = "warning"
     selectors: typing.List[Selector] = None
 
