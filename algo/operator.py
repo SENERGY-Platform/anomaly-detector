@@ -152,8 +152,7 @@ class Operator(util.OperatorBase):
     
     def run(self, data, selector='energy_func'):
         timestamp = self.todatetime(data['energy_time']).tz_localize(None)
-        if os.getenv("DEBUG") is not None and os.getenv("DEBUG").lower() == "true":
-            print('energy: '+str(data['energy'])+'  '+'time: '+str(timestamp))
+        print('energy: '+str(data['energy'])+'  '+'time: '+str(timestamp))
         if self.anomaly_detector.first_data_time == None:
             self.anomaly_detector.first_data_time = timestamp
             self.anomaly_detector.last_training_time = self.anomaly_detector.first_data_time
