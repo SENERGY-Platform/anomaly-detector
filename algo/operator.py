@@ -170,7 +170,7 @@ class Operator(util.OperatorBase):
         self.save_data()
         if test_result=='cont_device_anomaly':
             if self.anomaly_in_last_datapoint==False:
-                time_window_start = timestamp-pd.Timedelta(1,'hour')
+                time_window_start = (timestamp-pd.Timedelta(1,'hour')).floor('min')
                 self.anomaly_in_last_datapoint=True
                 return {'anomaly': f'Nachricht vom {str(timestamp.date())} um {str(timestamp.hour)}:{str(timestamp.minute)} Uhr: In der Zeit seit {str(time_window_start)} wurde beim Gerät eine Anomalie im Lastprofil festgestellt.'}
             elif self.anomaly_in_last_datapoint==True:
