@@ -53,7 +53,7 @@ def train_test(anomaly_detector, model_file_path):
     data_list = anomaly_detector.data
     data_series = pd.Series(data=[data_point for _, data_point in data_list], index=[timestamp for timestamp, _ in data_list]).sort_index()
     data_series = data_series[~data_series.index.duplicated(keep='first')]
-    if anomaly_detector.loads==None:
+    if anomaly_detector.loads==[]:
         old_number_of_loads=0
         anomaly_detector.loads=extract_loads(data_series)
     else:

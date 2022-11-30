@@ -11,7 +11,7 @@ class Anomaly_Detector:
         self.model = None
         self.anomalies = []
         self.training_performance = []
-        self.loads = None
+        self.loads = []
 
         
 
