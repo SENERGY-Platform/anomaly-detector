@@ -165,7 +165,7 @@ def test(data_list, anomaly_detector, use_cuda, model_input_window_length=205):
     reconstruction_dtw_errors = get_dtw_errors(model_input_data_array, anomaly_detector.model, use_cuda)
     #anomalous_reconstruction_area_errors = error_calculation.get_anomalous_indices(reconstruction_area_errors,0.05)
     #anomalous_reconstruction_pcm_errors = error_calculation.get_anomalous_indices(reconstruction_pcm_errors,0.1)
-    anomalous_reconstruction_dtw_errors = error_calculation.get_anomalous_indices(reconstruction_dtw_errors,0.01)
+    anomalous_reconstruction_dtw_errors = error_calculation.get_anomalous_indices(reconstruction_dtw_errors,0.1)
     #anomalous_reconstruction_indices = error_calculation.get_anomalous_indices(reconstruction_pcm_errors,0.03)+error_calculation.get_anomalous_indices(reconstruction_dtw_errors,0.05)+error_calculation.get_anomalous_indices(reconstruction_area_errors,0.01)
     '''if model_input_data_array.shape[0]-1 in anomalous_reconstruction_area_errors:
         anomalous_time_window = data_series[-model_input_window_length:]
