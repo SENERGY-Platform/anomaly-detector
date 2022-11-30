@@ -162,6 +162,7 @@ class Operator(util.OperatorBase):
             return
         if self.anomaly_detector.device_type == None:
             if timestamp-self.anomaly_detector.first_data_time < pd.Timedelta(1, 'days'):
+                self.anomaly_detector.data.append([timestamp, float(data['energy'])])
                 return
             elif timestamp-self.anomaly_detector.first_data_time >= pd.Timedelta(1, 'days'):
                 self.anomaly_detector.device_type = self.get_device_type(self.anomaly_detector.data)
