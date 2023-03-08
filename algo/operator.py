@@ -34,7 +34,8 @@ class Operator(util.OperatorBase):
 
         self.device_name = device_name
 
-        self.anomaly_in_last_datapoint = False
+        self.timestamp_last_anomaly = pd.Timestamp.min
+        self.timestamp_last_notification = pd.Timestamp.min
 
 
         self.model_file_path = f'{data_path}/{self.device_id}_model.pt'
@@ -173,16 +174,14 @@ class Operator(util.OperatorBase):
         test_result = self.test(use_cuda)
         self.save_data()
         if test_result=='cont_device_anomaly':
-            if self.anomaly_in_last_datapoint==False:
-                time_window_start = (timestamp-pd.Timedelta(1,'hour')).floor('min')
-                self.anomaly_in_last_datapoint=True
+            time_window_start = (timestamp-pd.Timedelta(1,'hour')).floor('min')
+            self.timestamp_last_anomaly, self.timestamp_last_notification, notification_now = cont_device.notification_decision(
+                                                                       self.timestamp_last_anomaly, self.timestamp_last_notification, timestamp)
+            if notification_now:
                 return {'anomaly': f'In der Zeit seit {str(time_window_start)} wurde eine Anomalie im Lastprofil festgestellt.'}
-            elif self.anomaly_in_last_datapoint==True:
+            else:
                 return
         elif test_result=='load_device_anomaly_power_curve':
             return {'anomaly':f'Bei der letzten Benutzung wurde eine Anomalie im Lastprofil festgestellt.'}
         elif test_result=='load_device_anomaly_length':
             return {'anomaly':f'Bei der letzten Benutzung wurde eine ungewöhnliche Laufdauer festgestellt.'}
-        else:
-            self.anomaly_in_last_datapoint=False
-            return
