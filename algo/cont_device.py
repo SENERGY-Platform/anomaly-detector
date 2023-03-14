@@ -206,11 +206,11 @@ def test(data_list, anomaly_detector, use_cuda, model_input_window_length=205):
     
 
 def notification_decision(timestamp_last_anomaly, timestamp_last_notification, timestamp):
-    if timestamp-timestamp_last_anomaly <= pd.Timedelta(30,'T'):
+    if timestamp <= pd.Timedelta(30,'T') + timestamp_last_anomaly:
         anomaly_during_last_30_min = True
     else:
         anomaly_during_last_30_min = False
-    if timestamp-timestamp_last_notification <= pd.Timedelta(30,'T'):
+    if timestamp <= pd.Timedelta(30,'T') + timestamp_last_anomaly:
         notification_during_last_30_min = True
     else:
         notification_during_last_30_min = False
