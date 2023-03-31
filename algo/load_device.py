@@ -69,7 +69,7 @@ def train_test(anomaly_detector, model_file_path):
             print('A load of anomalous length just ended!')
             return 'load_device_anomaly_length'
         array_of_normalized_loads = padding(list_of_normalized_loads, max([len(load) for load in list_of_normalized_loads]))
-        model=IsolationForest()
+        model=IsolationForest(contamination=0.01)
         model.fit(array_of_normalized_loads)
         with open(model_file_path, 'wb') as f:
             pickle.dump(model, f)
