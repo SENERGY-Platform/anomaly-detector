@@ -104,7 +104,7 @@ class Operator(util.OperatorBase):
         return device_type
         
     def batch_train(self, data, use_cuda):
-        if self.todatetime(data['energy_time']).tz_localize(None)-self.anomaly_detector.last_training_time >= pd.Timedelta(14, 'days'): 
+        if self.todatetime(data['energy_time']).tz_localize(None)-self.anomaly_detector.last_training_time >= pd.Timedelta(1, 'days'): 
             if self.anomaly_detector.device_type == 'cont_device':
                 if self.anomaly_detector.last_training_time == self.anomaly_detector.first_data_time:
                     self.anomaly_detector.model = cont_device.Autoencoder(32)
