@@ -59,5 +59,14 @@ if __name__ == '__main__':
         pipeline_id=dep_config.pipeline_id,
         operator_id=dep_config.operator_id
     )
+    watchdog = cncr_wdg.Watchdog(
+        monitor_callables=[operator.is_alive],
+        shutdown_callables=[operator.stop],
+        join_callables=[kafka_consumer.close, kafka_producer.flush],
+        shutdown_signals=[signal.SIGTERM, signal.SIGINT, signal.SIGABRT],
+        logger=util.logger
+    )
+    watchdog.start(delay=5)
     operator.start()
+    watchdog.join()
 
