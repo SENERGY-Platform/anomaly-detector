@@ -67,8 +67,6 @@ class Curve_Explorer:
         use_cuda = torch.cuda.is_available()
         self.last_training_time, self.model, self.training_performance = curve_utils.batch_train(self.data_list, self.first_data_time, self.last_training_time, self.device_type, self.model, use_cuda, self.training_performance)
         test_result, self.loads, self.anomalies = curve_utils.test(self.data_list, self.first_data_time, self.last_training_time, self.device_type, self.model, use_cuda, self.anomalies, self.loads)
-        utils.save_data(self.filename_dict, self.initial_time, self.first_data_time, self.last_training_time, self.data_list,
-                              self.model, self.training_performance, self.anomalies, self.device_type, self.loads)
         if test_result=='cont_device_anomaly':
             time_window_start = (timestamp-pd.Timedelta(1,'hour')).floor('min')
             self.timestamp_last_anomaly, self.timestamp_last_notification, notification_now = cont_device.notification_decision(
@@ -81,3 +79,8 @@ class Curve_Explorer:
             return {'anomaly':f'Bei der letzten Benutzung wurde eine Anomalie im Lastprofil festgestellt.'}
         elif test_result=='load_device_anomaly_length':
             return {'anomaly':f'Bei der letzten Benutzung wurde eine ungewöhnliche Laufdauer festgestellt.'}
+        
+
+    def save(self):
+        utils.save_data(self.filename_dict, self.initial_time, self.first_data_time, self.last_training_time, self.data_list,
+                              self.model, self.training_performance, self.anomalies, self.device_type, self.loads)
