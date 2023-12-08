@@ -8,7 +8,7 @@ from tqdm import tqdm
 
 from . import error_calculation, preprocessing
 
-__all__ = ("notification_decision")
+__all__ = ("notification_decision",)
 
 use_cuda = torch.cuda.is_available()
 

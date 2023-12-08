@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 from algo import utils
 
-__all__ = ("Point_Explorer")
+__all__ = ("Point_Explorer",)
 
 class Point_Explorer():
     def __init__(self):

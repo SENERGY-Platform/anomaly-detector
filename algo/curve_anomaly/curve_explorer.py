@@ -3,7 +3,7 @@ from algo import utils
 import pandas as pd
 import torch
 
-__all__ = ("Curve_Explorer")
+__all__ = ("Curve_Explorer",)
     
 class Curve_Explorer:
     def __init__(self, data_path):
