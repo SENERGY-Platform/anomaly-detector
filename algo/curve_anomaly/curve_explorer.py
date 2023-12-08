@@ -32,7 +32,7 @@ class Curve_Explorer:
          self.anomalies, 
          self.training_performance, 
          self.loads, 
-         self.model) = utils.save_data(self.filename_dict, 
+         self.model) = utils.load_data(self.filename_dict, 
                                        self.data_list, 
                                        self.initial_time, 
                                        self.first_data_time, 
