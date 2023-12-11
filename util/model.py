@@ -36,6 +36,10 @@ class Config(simple_struct.Structure):
     device_name: str = None
     logger_level = "warning"
     selectors: typing.List[Selector] = None
+    check_data_anomalies: bool = False
+    check_data_extreme_outlier: bool = True
+    check_data_schema: bool = True
+    check_receive_time_outlier: bool = True
 
     def __init__(self, d, **kwargs):
         super().__init__(d, **kwargs)

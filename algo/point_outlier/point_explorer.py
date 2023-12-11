@@ -32,6 +32,6 @@ class Point_Explorer():
             if timestamp-self.first_data_time > pd.Timedelta(2,'d'):
                 if np.absolute(new_value-self.current_mean) > 3*self.current_stddev:
                    print('An extreme point outlier just occured! \n\n\n\n')
-                   return 'point_outlier_anomaly'
+                   return True, 'point_outlier_anomaly'
             else:
-                return
+                return False, ''

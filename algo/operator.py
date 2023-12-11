@@ -22,7 +22,15 @@ from algo import curve_anomaly
 from algo import point_outlier
 
 class Operator(util.OperatorBase):
-    def __init__(self, device_id, data_path, device_name='Gerät'):
+    def __init__(
+        self, 
+        device_id, 
+        data_path, 
+        device_name='Gerät',
+        check_data_extreme_outlier=True,
+        check_data_anomalies=True,
+        check_data_schema=True,
+    ):
         if not os.path.exists(data_path):
             os.mkdir(data_path)
 
@@ -30,9 +38,18 @@ class Operator(util.OperatorBase):
 
         self.device_name = device_name
 
-        self.Curve_Explorer = curve_anomaly.Curve_Explorer(data_path)
-        self.Point_Explorer = point_outlier.Point_Explorer()
-    
+        if check_data_anomalies:
+            self.Curve_Explorer = curve_anomaly.Curve_Explorer(data_path)
+        
+        if check_data_extreme_outlier:
+            self.Point_Explorer = point_outlier.Point_Explorer()
+
     def run(self, data, selector='energy_func'):
-        self.Curve_Explorer.run(data)
-        #self.Point_Explorer.run(data)
+        for operator in [
+            {"name": "Point Outlier Detector", "detector": self.Point_Explorer},
+            {"name": "Anomaly Detector", "detector": self.Curve_Explorer},
+        ]:
+            sample_is_anomalous, message = operator.run(data)
+
+            if sample_is_anomalous:
+                return True, message
