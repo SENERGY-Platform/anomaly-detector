@@ -20,27 +20,28 @@ def get_device_type(data_list):# entries in data_list are of the form (timestamp
                     break    
         return device_type
 
-def batch_train(data, first_data_time, last_training_time, device_type, model, use_cuda, training_performance):
-        if utils.todatetime(data['energy_time']).tz_localize(None)-last_training_time >= pd.Timedelta(14, 'days'): 
+def batch_train(data_list, first_data_time, last_training_time, device_type, model, use_cuda, training_performance):
+        current_timestamp = utils.todatetime(data_list[-1]['energy_time']).tz_localize(None)
+        if current_timestamp-last_training_time >= pd.Timedelta(14, 'days'): 
             if device_type == 'cont_device':
                 if last_training_time == first_data_time:
                     model = cont_device.Autoencoder(32)
                     if use_cuda:
                         model = model.cuda()
-                model, training_performance = cont_device.batch_train(data, model, use_cuda, training_performance)
+                model, training_performance = cont_device.batch_train(data_list, model, use_cuda, training_performance)
             elif device_type == 'load_device':
                 pass # training IsolationForest is that fast, that we can train it again with every new data point.
-            last_training_time = utils.todatetime(data['energy_time']).tz_localize(None)
+            last_training_time = current_timestamp
             return last_training_time, model, training_performance
-        elif utils.todatetime(data['energy_time']).tz_localize(None)-last_training_time < pd.Timedelta(14, 'days'):
+        elif current_timestamp-last_training_time < pd.Timedelta(14, 'days'):
             pass
 
-def test(data, first_data_time, last_training_time, device_type, model, use_cuda, anomalies, loads):
+def test(data_list, first_data_time, last_training_time, device_type, model, use_cuda, anomalies, loads):
         if device_type == 'cont_device' and last_training_time > first_data_time:
-            output, anomalies = cont_device.test(data, model, use_cuda, anomalies)
+            output, anomalies = cont_device.test(data_list, model, use_cuda, anomalies)
             return output, loads, anomalies
         elif device_type == 'load_device':
-            output, loads, anomalies = load_device.train_test(data, loads, anomalies)
+            output, loads, anomalies = load_device.train_test(data_list, loads, anomalies)
             return output,  loads, anomalies
         else:
             return None, loads, anomalies
