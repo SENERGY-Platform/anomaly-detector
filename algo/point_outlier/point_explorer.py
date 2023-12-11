@@ -20,11 +20,12 @@ class Point_Explorer():
 
     def run(self, data):
         timestamp = utils.todatetime(data['energy_time']).tz_localize(None)
+        new_value = float(data['energy'])
+        print('energy: '+str(new_value)+'  '+'time: '+str(timestamp))
         if self.first_data_time == None:
             self.first_data_time = timestamp
             return
         else:
-            new_value = float(data['energy'])
             self.current_stddev = self.compute_std(new_value)
             self.current_mean = self.compute_mean(new_value)
             self.num_datepoints += 1
