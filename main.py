@@ -16,6 +16,7 @@
 
 import util
 import algo
+from algo.frequency_point_outlier import FrequencyDetector
 import json
 import confluent_kafka
 import mf_lib
@@ -46,10 +47,18 @@ if __name__ == '__main__':
     util.logger.debug(f"kafka producer config: {kafka_producer_config}")
     kafka_consumer = confluent_kafka.Consumer(kafka_consumer_config, logger=util.logger)
     kafka_producer = confluent_kafka.Producer(kafka_producer_config, logger=util.logger)
+    
+    if opr_config.config.check_receive_time_outlier:
+        frequency_monitor = FrequencyDetector(kafka_producer)
+        frequency_monitor.start()
+
     operator = algo.Operator(
         device_id=opr_config.config.device_id,
         data_path=opr_config.config.data_path,
-        device_name=opr_config.config.device_name
+        device_name=opr_config.config.device_name,
+        check_data_schema=opr_config.config.check_data_schema,
+        check_data_anomalies=opr_config.config.check_data_anomalies,
+        check_data_extreme_outlier=opr_config.config.check_data_extreme_outlier
     )
     operator.init(
         kafka_consumer=kafka_consumer,
@@ -59,6 +68,8 @@ if __name__ == '__main__':
         pipeline_id=dep_config.pipeline_id,
         operator_id=dep_config.operator_id
     )
+    
+    
     watchdog = cncr_wdg.Watchdog(
         monitor_callables=[operator.is_alive],
         shutdown_callables=[operator.stop, operator.Curve_Explorer.save()],
