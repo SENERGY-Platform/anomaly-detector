@@ -35,4 +35,4 @@ class Operator(util.OperatorBase):
     
     def run(self, data, selector='energy_func'):
         self.Curve_Explorer.run(data)
-        self.Point_Explorer.run(data)
+        #self.Point_Explorer.run(data)
