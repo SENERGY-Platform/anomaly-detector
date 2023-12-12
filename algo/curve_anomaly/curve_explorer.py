@@ -72,13 +72,13 @@ class Curve_Explorer:
             self.timestamp_last_anomaly, self.timestamp_last_notification, notification_now = cont_device.notification_decision(
                                                                        self.timestamp_last_anomaly, self.timestamp_last_notification, timestamp)
             if notification_now:
-                return {'anomaly': f'In der Zeit seit {str(time_window_start)} wurde eine Anomalie im Lastprofil festgestellt.'}
+                return True, f'In der Zeit seit {str(time_window_start)} wurde eine Anomalie im Lastprofil festgestellt.'
             else:
                 return False, ''
         elif test_result=='load_device_anomaly_power_curve':
-            return {'anomaly':f'Bei der letzten Benutzung wurde eine Anomalie im Lastprofil festgestellt.'}
+            return True, f'Bei der letzten Benutzung wurde eine Anomalie im Lastprofil festgestellt.'
         elif test_result=='load_device_anomaly_length':
-            return {'anomaly':f'Bei der letzten Benutzung wurde eine ungewöhnliche Laufdauer festgestellt.'}
+            return True, f'Bei der letzten Benutzung wurde eine ungewöhnliche Laufdauer festgestellt.'
         
 
     def save(self):
