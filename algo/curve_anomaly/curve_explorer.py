@@ -79,6 +79,8 @@ class Curve_Explorer:
             return True, f'Bei der letzten Benutzung wurde eine Anomalie im Lastprofil festgestellt.'
         elif test_result=='load_device_anomaly_length':
             return True, f'Bei der letzten Benutzung wurde eine ungewöhnliche Laufdauer festgestellt.'
+        else:
+            return False, ''
         
 
     def save(self):
