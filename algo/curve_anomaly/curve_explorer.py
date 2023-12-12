@@ -49,17 +49,17 @@ class Curve_Explorer:
     def run(self, data):
         timestamp = utils.todatetime(data['energy_time']).tz_localize(None)
         if self.initial_time-timestamp > pd.Timedelta(250,'days'):
-            return
+            return False, ''
         print('energy: '+str(data['energy'])+'  '+'time: '+str(timestamp))
         if self.first_data_time == None:
             self.first_data_time = timestamp
             self.last_training_time = self.first_data_time
             self.data_list.append([timestamp, float(data['energy'])])
-            return
+            return False, ''
         if self.device_type == None:
             if timestamp-self.first_data_time < pd.Timedelta(1, 'days'):
                 self.data_list.append([timestamp, float(data['energy'])])
-                return
+                return False, ''
             elif timestamp-self.first_data_time >= pd.Timedelta(1, 'days'):
                 self.device_type = curve_utils.get_device_type(self.data_list)
                 print(self.device_type)
@@ -74,7 +74,7 @@ class Curve_Explorer:
             if notification_now:
                 return {'anomaly': f'In der Zeit seit {str(time_window_start)} wurde eine Anomalie im Lastprofil festgestellt.'}
             else:
-                return
+                return False, ''
         elif test_result=='load_device_anomaly_power_curve':
             return {'anomaly':f'Bei der letzten Benutzung wurde eine Anomalie im Lastprofil festgestellt.'}
         elif test_result=='load_device_anomaly_length':

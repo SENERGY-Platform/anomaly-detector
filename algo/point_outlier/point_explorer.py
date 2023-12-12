@@ -24,7 +24,7 @@ class Point_Explorer():
         print('energy: '+str(new_value)+'  '+'time: '+str(timestamp))
         if self.first_data_time == None:
             self.first_data_time = timestamp
-            return
+            return False, ''
         else:
             self.current_stddev = self.compute_std(new_value)
             self.current_mean = self.compute_mean(new_value)
