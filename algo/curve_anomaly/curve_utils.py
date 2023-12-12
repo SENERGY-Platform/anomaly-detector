@@ -30,11 +30,11 @@ def batch_train(data_list, first_data_time, last_training_time, device_type, mod
                         model = model.cuda()
                 model, training_performance = cont_device.batch_train(data_list, model, use_cuda, training_performance)
             elif device_type == 'load_device':
-                pass # training IsolationForest is that fast, that we can train it again with every new data point.
+                return last_training_time, model, training_performance
             last_training_time = current_timestamp
             return last_training_time, model, training_performance
         elif current_timestamp-last_training_time < pd.Timedelta(14, 'days'):
-            pass
+            return last_training_time, model, training_performance
 
 def test(data_list, first_data_time, last_training_time, device_type, model, use_cuda, anomalies, loads):
         if device_type == 'cont_device' and last_training_time > first_data_time:
