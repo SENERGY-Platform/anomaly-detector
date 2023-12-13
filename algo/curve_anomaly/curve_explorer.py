@@ -48,8 +48,6 @@ class Curve_Explorer:
 
     def run(self, data):
         timestamp = utils.todatetime(data['energy_time']).tz_localize(None)
-        if self.initial_time-timestamp > pd.Timedelta(250,'days'):
-            return False, ''
         print('energy: '+str(data['energy'])+'  '+'time: '+str(timestamp))
         if self.first_data_time == None:
             self.first_data_time = timestamp
