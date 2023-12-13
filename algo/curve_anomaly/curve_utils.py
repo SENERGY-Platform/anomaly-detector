@@ -21,7 +21,7 @@ def get_device_type(data_list):# entries in data_list are of the form (timestamp
         return device_type
 
 def batch_train(data_list, first_data_time, last_training_time, device_type, model, use_cuda, training_performance):
-        current_timestamp = utils.todatetime(data_list[-1][1]).tz_localize(None)
+        current_timestamp = utils.todatetime(data_list[-1][0]).tz_localize(None)
         if current_timestamp-last_training_time >= pd.Timedelta(14, 'days'): 
             if device_type == 'cont_device':
                 if last_training_time == first_data_time:
