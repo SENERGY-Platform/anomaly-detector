@@ -79,4 +79,5 @@ if __name__ == '__main__':
     )
     watchdog.start(delay=5)
     operator.start()
+    operator.Curve_Explorer.save()
     watchdog.join()
