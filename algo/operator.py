@@ -50,7 +50,6 @@ class Operator(util.OperatorBase):
             self.Point_Explorer = point_outlier.Point_Explorer()
             self.active.append(self.Point_Explorer)
 
-        self.Curve_Explorer.save()
         
 
     def run(self, data, selector='energy_func'):
