@@ -45,6 +45,10 @@ class Config(simple_struct.Structure):
         super().__init__(d, **kwargs)
         if self.selectors:
             self.selectors = [Selector(s) for s in json.loads(self.selectors)]
+        
+        for boolean_prop in [self.check_data_anomalies, self.check_data_extreme_outlier, self.check_data_schema, self.check_receive_time_outlier]:
+            if boolean_prop:
+                boolean_prop = (boolean_prop == "True" or boolean_prop == "true" or boolean_prop == "1")
 
 
 class Mapping(simple_struct.Structure):
