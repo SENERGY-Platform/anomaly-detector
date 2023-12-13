@@ -33,5 +33,7 @@ class Point_Explorer():
                 if np.absolute(new_value-self.current_mean) > 3*self.current_stddev:
                    print('An extreme point outlier just occured! \n\n\n\n')
                    return True, 'point_outlier_anomaly'
+                
+                return False, ''
             else:
                 return False, ''

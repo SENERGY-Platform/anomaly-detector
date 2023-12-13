@@ -47,6 +47,7 @@ class Config(simple_struct.Structure):
             self.selectors = [Selector(s) for s in json.loads(self.selectors)]
         
         for boolean_prop in [self.check_data_anomalies, self.check_data_extreme_outlier, self.check_data_schema, self.check_receive_time_outlier]:
+            print(boolean_prop)
             if boolean_prop:
                 boolean_prop = (boolean_prop == "True" or boolean_prop == "true" or boolean_prop == "1")
 
