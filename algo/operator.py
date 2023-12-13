@@ -41,10 +41,12 @@ class Operator(util.OperatorBase):
         self.active = []
 
         if check_data_anomalies:
+            print("Curve Explorer is active!")
             self.Curve_Explorer = curve_anomaly.Curve_Explorer(data_path)
             self.active.append(self.Curve_Explorer)
         
         if check_data_extreme_outlier:
+            print("Point Explorer is active!")
             self.Point_Explorer = point_outlier.Point_Explorer()
             self.active.append(self.Point_Explorer)
         
