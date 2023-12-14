@@ -20,7 +20,6 @@ import util
 import os
 from algo import curve_anomaly
 from algo import point_outlier
-from algo import schema_check
 
 class Operator(util.OperatorBase):
     def __init__(
