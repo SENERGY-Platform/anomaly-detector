@@ -82,7 +82,7 @@ if __name__ == '__main__':
     
     watchdog = cncr_wdg.Watchdog(
         monitor_callables=[operator.is_alive],
-        shutdown_callables=[operator.stop, operator.Curve_Explorer.save],
+        shutdown_callables=[operator.stop, operator.Curve_Explorer.save, frequency_monitor.stop],
         join_callables=[kafka_consumer.close, kafka_producer.flush],
         shutdown_signals=[signal.SIGTERM, signal.SIGINT, signal.SIGABRT],
         logger=util.logger
