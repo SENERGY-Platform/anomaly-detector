@@ -13,3 +13,4 @@ tqdm
 similaritymeasures
 pyarrow
 river
+python-dotenv
