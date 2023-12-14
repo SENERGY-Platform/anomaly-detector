@@ -30,6 +30,7 @@ class Operator(util.OperatorBase):
         check_data_extreme_outlier=True,
         check_data_anomalies=True,
         check_data_schema=True,
+        frequency_monitor=None
     ):
         if not os.path.exists(data_path):
             os.mkdir(data_path)
@@ -50,10 +51,12 @@ class Operator(util.OperatorBase):
             self.Point_Explorer = point_outlier.Point_Explorer()
             self.active.append(self.Point_Explorer)
 
-        
+        if frequency_monitor:
+            self.frequency_monitor = frequency_monitor
 
     def run(self, data, selector='energy_func'):
         for operator in self.active:
+            self.frequency_monitor.register_input(data)
             sample_is_anomalous, message = operator.run(data)
 
             if sample_is_anomalous:

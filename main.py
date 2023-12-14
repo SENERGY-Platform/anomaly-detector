@@ -48,6 +48,7 @@ if __name__ == '__main__':
     kafka_consumer = confluent_kafka.Consumer(kafka_consumer_config, logger=util.logger)
     kafka_producer = confluent_kafka.Producer(kafka_producer_config, logger=util.logger)
     
+    frequency_monitor = None
     if opr_config.config.check_receive_time_outlier:
         print("Frequency Monitor is active!")
         frequency_monitor = FrequencyDetector(kafka_producer)
@@ -59,7 +60,8 @@ if __name__ == '__main__':
         device_name=opr_config.config.device_name,
         check_data_schema=opr_config.config.check_data_schema,
         check_data_anomalies=opr_config.config.check_data_anomalies,
-        check_data_extreme_outlier=opr_config.config.check_data_extreme_outlier
+        check_data_extreme_outlier=opr_config.config.check_data_extreme_outlier,
+        frequency_monitor=frequency_monitor
     )
     operator.init(
         kafka_consumer=kafka_consumer,
