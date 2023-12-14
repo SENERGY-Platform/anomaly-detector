@@ -30,6 +30,9 @@ class Selector(simple_struct.Structure):
         self.args = set(self.args)
 
 
+def parse_bool(value):
+    return (value == "True" or value == "true" or value == "1")
+
 class Config(simple_struct.Structure):
     device_id: str = None
     data_path = "/opt/data"
@@ -46,11 +49,12 @@ class Config(simple_struct.Structure):
         if self.selectors:
             self.selectors = [Selector(s) for s in json.loads(self.selectors)]
         
-        for boolean_prop in [self.check_data_anomalies, self.check_data_extreme_outlier, self.check_data_schema, self.check_receive_time_outlier]:
-            if boolean_prop:
-                boolean_prop = (boolean_prop == "True" or boolean_prop == "true" or boolean_prop == "1")
 
-
+        self.check_data_anomalies = parse_bool(self.check_data_anomalies)
+        self.check_data_extreme_outlier = parse_bool(self.check_data_extreme_outlier)
+        self.check_data_schema = parse_bool(self.check_data_schema)
+        self.check_receive_time_outlier = parse_bool(self.check_receive_time_outlier)
+            
 class Mapping(simple_struct.Structure):
     dest: str = None
     source: str = None
