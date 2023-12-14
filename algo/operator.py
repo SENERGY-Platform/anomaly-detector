@@ -20,6 +20,7 @@ import util
 import os
 from algo import curve_anomaly
 from algo import point_outlier
+from algo import schema_check
 
 class Operator(util.OperatorBase):
     def __init__(
@@ -30,7 +31,8 @@ class Operator(util.OperatorBase):
         check_data_extreme_outlier=True,
         check_data_anomalies=True,
         check_data_schema=True,
-        frequency_monitor=None
+        frequency_monitor=None,
+        input_topics=None
     ):
         if not os.path.exists(data_path):
             os.mkdir(data_path)
@@ -55,6 +57,9 @@ class Operator(util.OperatorBase):
         if frequency_monitor:
             print("Frequency Monitoring is active!")
             self.frequency_monitor = frequency_monitor
+
+        if check_data_schema:
+            self.data_schema_checker = schema_check.SchemaChecker(input_topics)
 
     def run(self, data, selector='energy_func'):
         for operator in self.active:
