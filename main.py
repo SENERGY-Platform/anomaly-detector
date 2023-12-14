@@ -54,7 +54,12 @@ if __name__ == '__main__':
     frequency_monitor = None
     if opr_config.config.check_receive_time_outlier:
         print("Frequency Monitor is active!")
-        frequency_monitor = FrequencyDetector(kafka_producer)
+        frequency_monitor = FrequencyDetector(
+            kafka_producer=kafka_producer,
+            operator_id=dep_config.operator_id,
+            pipeline_id=dep_config.pipeline_id,
+            output_topic=dep_config.output
+            )
         frequency_monitor.start()
 
     operator = algo.Operator(

@@ -2,6 +2,7 @@ import threading
 import datetime
 import time 
 from algo import utils
+import json 
 
 from river import stats
 
@@ -12,12 +13,18 @@ from river import stats
 class FrequencyDetector(threading.Thread):
     def __init__(
         self, 
-        kafka_producer
+        kafka_producer,
+        operator_id,
+        pipeline_id,
+        output_topic
     ):
         threading.Thread.__init__(self)
         self.last_received_ts = None
         self.kafka_producer = kafka_producer
         self.__stop = False
+        self.operator_id = operator_id
+        self.pipeline_id = pipeline_id
+        self.output_topic = output_topic
 
         self.rolling_iqr = stats.RollingIQR(
             q_inf=0.25,
@@ -43,7 +50,21 @@ class FrequencyDetector(threading.Thread):
             print(f"Time since last input {waiting_time}")
             if self.duration_is_anomalous(waiting_time):
                 print("Time since last input was anomalous - either too short or too long")
-                self.kafka_producer.produce()
+                self.kafka_producer.produce(
+                    self.output_topic,
+                        json.dumps(
+                            {
+                                "pipeline_id": self.pipeline_id,
+                                "operator_id": self.operator_id,
+                                "analytics": {
+                                    "anomaly_occured": True, 
+                                    "message": "Time since last input was anomalous - either too short or too long"
+                                },
+                                "time": "{}Z".format(datetime.datetime.utcnow().isoformat())
+                            }
+                        ),
+                        self.operator_id
+                )
             
             time.sleep(5)
 
