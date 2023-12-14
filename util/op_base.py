@@ -74,6 +74,11 @@ class OperatorBase:
         except mf_lib.exceptions.NoFilterError:
             pass
         except mf_lib.exceptions.MessageIdentificationError as ex:
+            if self.check_data_schema: 
+                run_results.append({
+                    "anomaly_occured": True, 
+                    "message": "Input did not match any input topic and mapping"
+                })
             logger.error(ex)
         return run_results
 

@@ -32,7 +32,6 @@ class Operator(util.OperatorBase):
         check_data_anomalies=True,
         check_data_schema=True,
         frequency_monitor=None,
-        input_topics=None
     ):
         if not os.path.exists(data_path):
             os.mkdir(data_path)
@@ -43,6 +42,8 @@ class Operator(util.OperatorBase):
 
         self.active = []
         self.frequency_monitor = frequency_monitor
+
+        self.check_data_schema = check_data_schema
 
         if check_data_anomalies:
             print("Curve Explorer is active!")
@@ -58,9 +59,6 @@ class Operator(util.OperatorBase):
             print("Frequency Monitoring is active!")
             self.frequency_monitor = frequency_monitor
 
-        if check_data_schema:
-            self.data_schema_checker = schema_check.SchemaChecker(input_topics)
-
     def run(self, data, selector='energy_func'):
         for operator in self.active:
             if self.frequency_monitor:
@@ -68,4 +66,7 @@ class Operator(util.OperatorBase):
             sample_is_anomalous, message = operator.run(data)
 
             if sample_is_anomalous:
-                return True, message
+                return {
+                    "anomaly_occured": True, 
+                    "message": message
+                }
