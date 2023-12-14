@@ -22,6 +22,9 @@ import confluent_kafka
 import mf_lib
 import cncr_wdg
 import signal
+import dotenv
+
+dotenv.load_dotenv()
 
 if __name__ == '__main__':
     util.print_init(name="anomaly-detector-operator", git_info_file="git_commit")

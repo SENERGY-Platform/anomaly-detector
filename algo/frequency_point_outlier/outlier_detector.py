@@ -1,6 +1,7 @@
 import threading 
 import datetime
 import time 
+from algo import utils
 
 from river import stats
 
@@ -27,6 +28,8 @@ class FrequencyDetector(threading.Thread):
             q=.75,
             window_size=100,
         )
+
+        self.operator_start_time = datetime.datetime.now()
 
     def run(self):
         while not self.__stop:
@@ -59,7 +62,13 @@ class FrequencyDetector(threading.Thread):
         return (ts1 - ts2).total_seconds() / 60
 
     def register_input(self, data):
+        input_timestamp = utils.todatetime(data['energy_time']).tz_localize(None)
+
         now = datetime.datetime.now()
+
+        if input_timestamp < self.operator_start_time:
+            print('Input is historic -> dont use for outlier detection')
+            return 
 
         if not self.last_received_ts:
             print('First input arrived')
