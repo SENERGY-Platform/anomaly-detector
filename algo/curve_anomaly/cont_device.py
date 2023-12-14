@@ -199,10 +199,10 @@ def test(data_list, model, use_cuda, anomalies, model_input_window_length=205):
                                            'dtw'))
         print('An anomaly has just occurred! (dtw error)')
         model.train()
-        return 'cont_device_anomaly'
+        return 'cont_device_anomaly', anomalies
     else:
         model.train()
-        return None
+        return None, anomalies
     
 
 def notification_decision(timestamp_last_anomaly, timestamp_last_notification, timestamp):
