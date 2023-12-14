@@ -80,9 +80,16 @@ if __name__ == '__main__':
         operator_id=dep_config.operator_id
     )
     
+    shutdown_callables=[operator.stop] 
+    if opr_config.config.check_receive_time_outlier:
+        shutdown_callables.append(frequency_monitor.stop)
+
+    if opr_config.config.check_data_anomalies:
+        shutdown_callables.append(operator.Curve_Explorer.save)
+
     watchdog = cncr_wdg.Watchdog(
         monitor_callables=[operator.is_alive],
-        shutdown_callables=[operator.stop, operator.Curve_Explorer.save, frequency_monitor.stop],
+        shutdown_callables=shutdown_callables,
         join_callables=[kafka_consumer.close, kafka_producer.flush],
         shutdown_signals=[signal.SIGTERM, signal.SIGINT, signal.SIGABRT],
         logger=util.logger
