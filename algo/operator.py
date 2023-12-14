@@ -40,6 +40,7 @@ class Operator(util.OperatorBase):
         self.device_name = device_name
 
         self.active = []
+        self.frequency_monitor = frequency_monitor
 
         if check_data_anomalies:
             print("Curve Explorer is active!")
@@ -52,11 +53,13 @@ class Operator(util.OperatorBase):
             self.active.append(self.Point_Explorer)
 
         if frequency_monitor:
+            print("Frequency Monitoring is active!")
             self.frequency_monitor = frequency_monitor
 
     def run(self, data, selector='energy_func'):
         for operator in self.active:
-            self.frequency_monitor.register_input(data)
+            if self.frequency_monitor:
+                self.frequency_monitor.register_input(data)
             sample_is_anomalous, message = operator.run(data)
 
             if sample_is_anomalous:
