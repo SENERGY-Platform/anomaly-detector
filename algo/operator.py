@@ -55,7 +55,6 @@ class Operator(util.OperatorBase):
             self.active.append(self.Point_Explorer)
 
         if frequency_monitor:
-            print("Frequency Monitoring is active!")
             self.frequency_monitor = frequency_monitor
 
     def run(self, data, selector='energy_func'):
