@@ -61,8 +61,7 @@ if __name__ == '__main__':
         check_data_schema=opr_config.config.check_data_schema,
         check_data_anomalies=opr_config.config.check_data_anomalies,
         check_data_extreme_outlier=opr_config.config.check_data_extreme_outlier,
-        frequency_monitor=frequency_monitor,
-        input_topics=opr_config.inputTopics
+        frequency_monitor=frequency_monitor
     )
     operator.init(
         kafka_consumer=kafka_consumer,
