@@ -34,7 +34,7 @@ class Config(simple_struct.Structure):
     device_id: str = None
     data_path = "/opt/data"
     device_name: str = None
-    logger_level = "warning"
+    logger_level = "debug"
     selectors: typing.List[Selector] = None
     check_data_anomalies: bool = False
     check_data_extreme_outlier: bool = True
