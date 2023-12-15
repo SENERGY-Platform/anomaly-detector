@@ -1,9 +1,21 @@
 import pandas as pd
+import numpy as np
 import pickle
 import torch
 import os
 
-__all__ = ("todatetime", "save_data")
+__all__ = ("todatetime", "save_data", "calculate_std", "calculate_mean")
+
+
+
+def calculate_std(new_value, current_stddev, current_mean, num_datepoints):
+    current_stddev = np.sqrt(num_datepoints/(num_datepoints + 1)*current_stddev**2 + num_datepoints/((num_datepoints + 1)**2)*(new_value - current_mean)**2)
+    return current_stddev
+    
+def calculate_mean(new_value, current_mean, num_datepoints):
+    current_mean = (num_datepoints*current_mean + new_value)/(num_datepoints + 1)
+    return current_mean
+
 
 def todatetime(timestamp):
         if str(timestamp).isdigit():
