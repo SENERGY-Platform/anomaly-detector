@@ -31,7 +31,7 @@ class FrequencyDetector(threading.Thread, utils.StdPointOutlierDetector):
 
     def run(self):
         print("Frequency Detection Loop started!")
-        while self.__stop:
+        while not self.__stop:
             if not self.last_received_ts:
                 print("Pause check until first input")
                 time.sleep(5)
