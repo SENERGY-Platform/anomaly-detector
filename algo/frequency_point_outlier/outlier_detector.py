@@ -4,8 +4,6 @@ import time
 from algo import utils
 import json 
 
-from river import stats
-
 # TODO
 # nur sinnvoll bei sensoren die regelmaesig senden
 # nicht bei erkennungssensoren z.b 
