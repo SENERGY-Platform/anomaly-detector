@@ -89,6 +89,9 @@ if __name__ == '__main__':
     if opr_config.config.check_data_anomalies:
         shutdown_callables.append(operator.Curve_Explorer.save)
 
+    if opr_config.config.check_data_extreme_outlier:
+        shutdown_callables.append(operator.Point_Explorer.save)
+
     watchdog = cncr_wdg.Watchdog(
         monitor_callables=[operator.is_alive],
         shutdown_callables=shutdown_callables,
