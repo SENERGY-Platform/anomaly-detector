@@ -30,6 +30,7 @@ class FrequencyDetector(threading.Thread, utils.StdPointOutlierDetector):
         self.operator_start_time = datetime.datetime.now()
 
     def run(self):
+        print("Frequency Detection Loop started!")
         while self.__stop:
             if not self.last_received_ts:
                 print("Pause check until first input")
@@ -37,6 +38,7 @@ class FrequencyDetector(threading.Thread, utils.StdPointOutlierDetector):
                 continue
 
             if self.pause_event.is_set():
+                print("Pause event is active (training is active)")
                 continue
 
             now = datetime.datetime.now()
