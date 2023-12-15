@@ -10,7 +10,7 @@ __all__ = ("todatetime", "save_data", "calculate_std", "calculate_mean")
 class StdPointOutlierDetector():
     def __init__(self, data_path):
         if not os.path.exists(data_path):
-            os.mkdirs(data_path)
+            os.mkdir(data_path)
         
         self.filename_dict = {"current_stddev": f'{data_path}/current_stddev_point.parquet', "current_mean": f'{data_path}/current_mean_point.pickle', 
                               "num_datepoints": f'{data_path}/num_datepoints_point.pickle', "first_data_time": f'{data_path}/first_data_time_point.pickle'}
