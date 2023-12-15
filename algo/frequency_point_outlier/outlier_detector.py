@@ -94,7 +94,7 @@ class FrequencyDetector(threading.Thread, utils.StdPointOutlierDetector):
             return 
 
         waiting_time = self.calculate_time_diff(now, self.last_received_ts)
-        print(f"Waiting time of current input: {waiting_time}")
+        print(f"Input received at: {input_timestamp} -> Waiting time of current input: {waiting_time}")
         self.update(waiting_time)
         self.last_received_ts = now
 
