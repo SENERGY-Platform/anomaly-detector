@@ -26,14 +26,17 @@ class Point_Explorer():
             self.first_data_time = timestamp
             return False, ''
         else:
-            self.current_stddev = self.compute_std(new_value)
-            self.current_mean = self.compute_mean(new_value)
-            self.num_datepoints += 1
             if timestamp-self.first_data_time > pd.Timedelta(2,'d'):
                 if np.absolute(new_value-self.current_mean) > 3*self.current_stddev:
-                   print('An extreme point outlier just occured! \n\n\n\n')
-                   return True, 'point_outlier_anomaly'
-                
-                return False, ''
+                    print('An extreme point outlier just occured! \n\n\n\n')
+                    self.current_stddev = self.compute_std(new_value)
+                    self.current_mean = self.compute_mean(new_value)
+                    self.num_datepoints += 1
+                    return True, 'point_outlier_anomaly'
+                else:
+                    self.current_stddev = self.compute_std(new_value)
+                    self.current_mean = self.compute_mean(new_value)
+                    self.num_datepoints += 1
+                    return False, ''
             else:
                 return False, ''
