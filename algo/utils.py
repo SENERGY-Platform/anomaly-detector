@@ -7,15 +7,79 @@ import os
 __all__ = ("todatetime", "save_data", "calculate_std", "calculate_mean")
 
 
+class StdPointOutlierDetector():
+    def __init__(self, data_path):
+        if not os.path.exists(data_path):
+            os.mkdirs(data_path)
+        
+        self.filename_dict = {"current_stddev": f'{data_path}/current_stddev_point.parquet', "current_mean": f'{data_path}/current_mean_point.pickle', 
+                              "num_datepoints": f'{data_path}/num_datepoints_point.pickle', "first_data_time": f'{data_path}/first_data_time_point.pickle'}
+        
+        self.current_stddev = 0
+        self.current_mean = 0
+        self.num_datepoints = 0
+        self.first_data_time = None
 
-def calculate_std(new_value, current_stddev, current_mean, num_datepoints):
-    current_stddev = np.sqrt(num_datepoints/(num_datepoints + 1)*current_stddev**2 + num_datepoints/((num_datepoints + 1)**2)*(new_value - current_mean)**2)
-    return current_stddev
-    
-def calculate_mean(new_value, current_mean, num_datepoints):
-    current_mean = (num_datepoints*current_mean + new_value)/(num_datepoints + 1)
-    return current_mean
+        (self.current_stddev, 
+        self.current_mean, 
+        self.num_datepoints, 
+        self.first_data_time) = self.load_data(self.current_stddev, 
+                                              self.current_mean, 
+                                              self.num_datepoints, 
+                                              self.first_data_time)
 
+        
+    def calculate_std(self, new_value, current_stddev, current_mean, num_datepoints):
+        current_stddev = np.sqrt(num_datepoints/(num_datepoints + 1)*current_stddev**2 + num_datepoints/((num_datepoints + 1)**2)*(new_value - current_mean)**2)
+        return current_stddev
+        
+    def calculate_mean(self, new_value, current_mean, num_datepoints):
+        current_mean = (num_datepoints*current_mean + new_value)/(num_datepoints + 1)
+        return current_mean
+
+    def save(self):
+        current_stddev_path = self.filename_dict["current_stddev"]
+        current_mean_path = self.filename_dict["current_mean"]
+        num_datepoints_path = self.filename_dict["num_datepoints"]
+        first_data_time_path = self.filename_dict["first_data_time"]
+
+        with open(current_stddev_path, 'wb') as f:
+            pickle.dump(self.current_stddev, f)
+        with open(current_mean_path, 'wb') as f:
+            pickle.dump(self.current_mean, f)
+        with open(num_datepoints_path, 'wb') as f:
+            pickle.dump(self.num_datepoints, f)
+        with open(first_data_time_path, 'wb') as f:
+            pickle.dump(self.first_data_time, f)
+
+    def load_data(self, current_stddev, current_mean, num_datepoints, first_data_time):
+        current_stddev_path = self.filename_dict["current_stddev"]
+        current_mean_path = self.filename_dict["current_mean"]
+        num_datepoints_path = self.filename_dict["num_datepoints"]
+        first_data_time_path = self.filename_dict["first_data_time"]
+        
+        if os.path.exists(current_stddev_path):
+            with open(current_stddev_path, 'rb') as f:
+                current_stddev = pickle.load(f)
+        if os.path.exists(current_mean_path):
+            with open(current_mean_path, 'rb') as f:
+                current_mean = pickle.load(f)
+        if os.path.exists(num_datepoints_path):
+            with open(num_datepoints_path, 'rb') as f:
+                num_datepoints = pickle.load(f)
+        if os.path.exists(first_data_time_path):
+            with open(first_data_time_path, 'rb') as f:
+                first_data_time = pickle.load(f)
+        
+        return current_stddev, current_mean, num_datepoints, first_data_time
+
+    def point_is_anomalous(self, point):
+        return np.absolute(point - self.current_mean) > 3*self.current_stddev
+
+    def update(self, point):
+        self.current_stddev = self.calculate_std(point, self.current_stddev, self.current_mean, self.num_datepoints)
+        self.current_mean = self.calculate_mean(point, self.current_mean, self.num_datepoints)
+        self.num_datepoints += 1
 
 def todatetime(timestamp):
         if str(timestamp).isdigit():

@@ -12,5 +12,4 @@ scikit-learn
 tqdm
 similaritymeasures
 pyarrow
-river
 python-dotenv

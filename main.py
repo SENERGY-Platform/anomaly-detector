@@ -22,6 +22,7 @@ import confluent_kafka
 import mf_lib
 import cncr_wdg
 import signal
+import os 
 import dotenv
 
 dotenv.load_dotenv()
@@ -58,7 +59,8 @@ if __name__ == '__main__':
             kafka_producer=kafka_producer,
             operator_id=dep_config.operator_id,
             pipeline_id=dep_config.pipeline_id,
-            output_topic=dep_config.output
+            output_topic=dep_config.output,
+            data_path=os.path.join(opr_config.config.data_path, "point_explorer")
             )
         frequency_monitor.start()
 
@@ -82,7 +84,7 @@ if __name__ == '__main__':
     
     shutdown_callables=[operator.stop] 
     if opr_config.config.check_receive_time_outlier:
-        shutdown_callables.append(frequency_monitor.stop)
+        shutdown_callables.append(frequency_monitor.stop, frequency_monitor.save)
 
     if opr_config.config.check_data_anomalies:
         shutdown_callables.append(operator.Curve_Explorer.save)
