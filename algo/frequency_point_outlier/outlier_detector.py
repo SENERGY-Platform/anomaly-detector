@@ -21,6 +21,7 @@ class FrequencyDetector(threading.Thread):
         threading.Thread.__init__(self)
         self.last_received_ts = None
         self.kafka_producer = kafka_producer
+        self.pause_event = threading.Event()
         self.__stop = False
         self.operator_id = operator_id
         self.pipeline_id = pipeline_id
@@ -39,10 +40,13 @@ class FrequencyDetector(threading.Thread):
         self.operator_start_time = datetime.datetime.now()
 
     def run(self):
-        while not self.__stop:
+        while self.__stop:
             if not self.last_received_ts:
                 print("Pause check until first input")
                 time.sleep(5)
+                continue
+
+            if self.pause_event.is_set():
                 continue
 
             now = datetime.datetime.now()
@@ -78,6 +82,12 @@ class FrequencyDetector(threading.Thread):
 
     def stop(self):
         self.__stop = True
+
+    def pause(self):
+        self.pause_event.set()
+
+    def unpause(self):
+        self.pause_event.clear()
 
     def calculate_time_diff(self, ts1, ts2):
         return (ts1 - ts2).total_seconds() / 60
