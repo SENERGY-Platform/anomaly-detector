@@ -84,7 +84,7 @@ if __name__ == '__main__':
     
     shutdown_callables=[operator.stop] 
     if opr_config.config.check_receive_time_outlier:
-        shutdown_callables.append(frequency_monitor.stop, frequency_monitor.save)
+        shutdown_callables += [frequency_monitor.stop, frequency_monitor.save]
 
     if opr_config.config.check_data_anomalies:
         shutdown_callables.append(operator.Curve_Explorer.save)
