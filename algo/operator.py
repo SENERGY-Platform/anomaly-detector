@@ -58,9 +58,10 @@ class Operator(util.OperatorBase):
             self.frequency_monitor = frequency_monitor
 
     def run(self, data, selector='energy_func'):
+        if self.frequency_monitor:
+            self.frequency_monitor.register_input(data)
+
         for operator in self.active:
-            if self.frequency_monitor:
-                self.frequency_monitor.register_input(data)
             sample_is_anomalous, message = operator.run(data)
 
             if sample_is_anomalous:
