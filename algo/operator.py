@@ -51,7 +51,7 @@ class Operator(util.OperatorBase):
         
         if check_data_extreme_outlier:
             print("Point Explorer is active!")
-            self.Point_Explorer = point_outlier.Point_Explorer()
+            self.Point_Explorer = point_outlier.Point_Explorer(data_path)
             self.active.append(self.Point_Explorer)
 
         if frequency_monitor:
