@@ -60,8 +60,9 @@ if __name__ == '__main__':
             operator_id=dep_config.operator_id,
             pipeline_id=dep_config.pipeline_id,
             output_topic=dep_config.output,
-            data_path=os.path.join(opr_config.config.data_path, "point_explorer")
-            )
+            data_path=os.path.join(opr_config.config.data_path, "point_explorer"),
+            consumer_auto_offset_reset_config=dep_config.consumer_auto_offset_reset_config
+        )
         frequency_monitor.start()
 
     operator = algo.Operator(

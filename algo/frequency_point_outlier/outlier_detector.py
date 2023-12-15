@@ -15,7 +15,8 @@ class FrequencyDetector(threading.Thread, utils.StdPointOutlierDetector):
         operator_id,
         pipeline_id,
         output_topic,
-        data_path
+        data_path,
+        consumer_auto_offset_reset_config
     ):
         threading.Thread.__init__(self)
         utils.StdPointOutlierDetector.__init__(self, data_path)
@@ -28,6 +29,7 @@ class FrequencyDetector(threading.Thread, utils.StdPointOutlierDetector):
         self.pipeline_id = pipeline_id
         self.output_topic = output_topic
         self.operator_start_time = datetime.datetime.now()
+        self.consumer_auto_offset_reset_config = consumer_auto_offset_reset_config
 
     def run(self):
         print("Frequency Detection Loop started!")
@@ -81,7 +83,8 @@ class FrequencyDetector(threading.Thread, utils.StdPointOutlierDetector):
 
         now = datetime.datetime.now()
 
-        if input_timestamp < self.operator_start_time:
+        # Ignore old values when consuming old messages is enabled -> when using `latest` we want to keep old values for testing
+        if self.consumer_auto_offset_reset_config == "earliest" and input_timestamp < self.operator_start_time:
             print('Input is historic -> dont use for outlier detection')
             return 
 
