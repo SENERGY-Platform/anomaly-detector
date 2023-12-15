@@ -16,10 +16,10 @@ class Point_Explorer():
         self.num_datepoints = 0
         self.first_data_time = None
 
-        self.current_stddev, 
+        (self.current_stddev, 
         self.current_mean, 
         self.num_datepoints, 
-        self.first_data_time = self.load_data(self.current_stddev, 
+        self.first_data_time) = self.load_data(self.current_stddev, 
                                               self.current_mean, 
                                               self.num_datepoints, 
                                               self.first_data_time)
