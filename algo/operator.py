@@ -62,10 +62,7 @@ class Operator(util.OperatorBase):
             self.frequency_monitor.register_input(data)
 
         for operator in self.active:
-            sample_is_anomalous, message = operator.run(data)
+            sample_is_anomalous, result = operator.run(data)
 
             if sample_is_anomalous:
-                return {
-                    "anomaly_occured": True, 
-                    "message": message
-                }
+                return result 

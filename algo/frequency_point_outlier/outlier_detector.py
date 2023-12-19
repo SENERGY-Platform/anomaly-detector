@@ -55,8 +55,10 @@ class FrequencyDetector(threading.Thread, utils.StdPointOutlierDetector):
                                 "pipeline_id": self.pipeline_id,
                                 "operator_id": self.operator_id,
                                 "analytics": {
-                                    "anomaly_occured": True, 
-                                    "message": "Time since last input was anomalous - either too short or too long"
+                                    "type": "time",
+                                    "sub_type": "",
+                                    "value": waiting_time,
+                                    "unit": "min",
                                 },
                                 "time": "{}Z".format(datetime.datetime.utcnow().isoformat())
                             }

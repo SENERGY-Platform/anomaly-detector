@@ -1,8 +1,6 @@
-import numpy as np
 import pandas as pd
 from algo import utils
-import pickle
-import os
+
 
 __all__ = ("Point_Explorer",)
 
@@ -21,8 +19,13 @@ class Point_Explorer(utils.StdPointOutlierDetector):
             if self.point_is_anomalous(new_value):
                 print('An extreme point outlier just occured! \n\n\n\n')
                 self.update(new_value)                   
-                return True, 'point_outlier_anomaly'
+                return True, {
+                    "type": "extreme_value",
+                    "sub_type": "",
+                    "value": new_value,
+                    "unit": "TODO"
+                }
                     
         self.update(new_value)
-        return False, ''
+        return False, {}
             

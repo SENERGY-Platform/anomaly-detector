@@ -70,16 +70,25 @@ class Curve_Explorer:
             self.timestamp_last_anomaly, self.timestamp_last_notification, notification_now = cont_device.notification_decision(
                                                                        self.timestamp_last_anomaly, self.timestamp_last_notification, timestamp)
             if notification_now:
-                return True, f'In der Zeit seit {str(time_window_start)} wurde eine Anomalie im Lastprofil festgestellt.'
+                return True, self.create_result(f'In der Zeit seit {str(time_window_start)} wurde eine Anomalie im Lastprofil festgestellt.', time_window_start, "TODO", "continous_device")
             else:
                 return False, ''
         elif test_result=='load_device_anomaly_power_curve':
-            return True, f'Bei der letzten Benutzung wurde eine Anomalie im Lastprofil festgestellt.'
+            return True, self.create_result(f'Bei der letzten Benutzung wurde eine Anomalie im Lastprofil festgestellt.', "", "", "uncontinious_device_curve")
         elif test_result=='load_device_anomaly_length':
-            return True, f'Bei der letzten Benutzung wurde eine ungewöhnliche Laufdauer festgestellt.'
+            return True, self.create_result(f'Bei der letzten Benutzung wurde eine ungewöhnliche Laufdauer festgestellt.', "", "", "uncontinious_device_length")
         else:
             return False, ''
         
+
+    def create_result(self, message, value, unit, sub_type):
+        return {
+                    "type": "curve_anomaly",
+                    "sub_type": sub_type,
+                    "message": message,
+                    "value": value,
+                    "unit": unit
+        }
 
     def save(self):
         utils.save_data(self.filename_dict, self.initial_time, self.first_data_time, self.last_training_time, self.data_list,
