@@ -16,10 +16,12 @@
 
 __all__ = ("Operator", )
 
-import util
 import os
+import json 
+
 from algo import curve_anomaly
 from algo import point_outlier
+import util
 
 class Operator(util.OperatorBase):
     def __init__(
@@ -62,6 +64,17 @@ class Operator(util.OperatorBase):
     def run(self, data, selector='energy_func'):
         if self.frequency_monitor:
             self.frequency_monitor.register_input(data)
+
+        if self.check_data_schema:
+            if self.check_data_schema: 
+                if "energy_time" not in data or "time" not in data:
+                    anomalous_value = json.dumps(data)
+                    print(f"Anomaly occured: Detector=schema Value={anomalous_value}")
+                    return {
+                        "type": "schema",
+                        "sub_type": "",
+                        "value": anomalous_value, 
+                    }
 
         for operator in self.active:
             sample_is_anomalous, result = operator.run(data)

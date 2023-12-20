@@ -81,6 +81,9 @@ class FrequencyDetector(threading.Thread, utils.StdPointOutlierDetector):
         return (ts1 - ts2).total_seconds() / 60
 
     def register_input(self, data):
+        if "energy_time" not in data or "time" not in data:
+            return 
+            
         input_timestamp = utils.todatetime(data['energy_time']).tz_localize(None)
 
         now = datetime.datetime.now()
