@@ -60,7 +60,10 @@ class OperatorBase:
     def __call_run(self, message):
         run_results = list()
         try:
+            print("TRY")
             for result in self.__filter_handler.get_results(message=message):
+                print("RESULT")
+                print(result)
                 if not result.ex:
                     for f_id in result.filter_ids:
                         run_result = self.run(
@@ -74,9 +77,11 @@ class OperatorBase:
         except mf_lib.exceptions.NoFilterError:
             pass
         except mf_lib.exceptions.MessageIdentificationError as ex:
+            print("ERROR2")
             if self.check_data_schema: 
                 run_results.append({
-                    "anomaly_occured": True, 
+                    "type": "schema",
+                    "value": message, 
                     "message": "Input did not match any input topic and mapping"
                 })
             logger.error(ex)

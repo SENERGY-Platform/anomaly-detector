@@ -43,6 +43,8 @@ class Operator(util.OperatorBase):
         self.frequency_monitor = frequency_monitor
 
         self.check_data_schema = check_data_schema
+        if self.check_data_schema:
+            print("Data Schema Detector is active")
 
         if check_data_anomalies:
             print("Curve Explorer is active!")
