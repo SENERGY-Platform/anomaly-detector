@@ -57,6 +57,24 @@ class OperatorBase:
         setattr(obj, f"_{OperatorBase.__name__}__stopped", False)
         return obj
 
+    def schema_is_anomalous(self, message):
+        if self.check_data_schema:
+            for input_topic in self.__input_topics:
+                for mapping in input_topic["mappings"]:
+                    current_value = message
+                    keys = mapping["source"].split(".")
+                    mapping_matches = True
+                    for key in keys:
+                        if key not in current_value:
+                            mapping_matches = False
+                            break 
+                        current_value = current_value[key]
+                    if mapping_matches:
+                        return False
+                    
+            return True
+        return False            
+
     def __call_run(self, message):
         run_results = list()
         try:
@@ -81,7 +99,18 @@ class OperatorBase:
         msg_obj = self.__kafka_consumer.poll(timeout=self.__poll_timeout)
         if msg_obj:
             if not msg_obj.error():
-                results = self.__call_run(json.loads(msg_obj.value()))
+                message = msg_obj.value()
+                value = json.loads(message)
+                anomalous = self.schema_is_anomalous(value)
+                if anomalous:
+                    print(f"Anomaly occured: Detector=schema Value={message}")
+                    return True, {
+                        "type": "schema",
+                        "sub_type": "",
+                        "value": message, 
+                    }
+
+                results = self.__call_run(value)
                 for result in results:
                     self.__kafka_producer.produce(
                         self.__output_topic,
@@ -107,7 +136,17 @@ class OperatorBase:
                 self.__stop = True
         self.__stopped = True
 
-    def init(self, kafka_consumer: confluent_kafka.Consumer, kafka_producer: confluent_kafka.Producer, filter_handler: mf_lib.FilterHandler, output_topic: str, pipeline_id: str, operator_id: str, poll_timeout: float = 1.0):
+    def init(
+        self, 
+        kafka_consumer: confluent_kafka.Consumer, 
+        kafka_producer: confluent_kafka.Producer, 
+        filter_handler: mf_lib.FilterHandler, 
+        output_topic: str, 
+        pipeline_id: str, 
+        operator_id: str, 
+        poll_timeout: float = 1.0,
+        input_topics: typing.List[str] = []
+    ):
         self.__kafka_consumer = kafka_consumer
         self.__kafka_producer = kafka_producer
         self.__filter_handler = filter_handler
@@ -115,6 +154,7 @@ class OperatorBase:
         self.__pipeline_id = pipeline_id
         self.__operator_id = operator_id
         self.__poll_timeout = poll_timeout
+        self.__input_topics = input_topics
 
     def get_pipeline_id(self) -> str:
         return self.__pipeline_id

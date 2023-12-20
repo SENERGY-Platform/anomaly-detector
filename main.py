@@ -80,7 +80,8 @@ if __name__ == '__main__':
         filter_handler=filter_handler,
         output_topic=dep_config.output,
         pipeline_id=dep_config.pipeline_id,
-        operator_id=dep_config.operator_id
+        operator_id=dep_config.operator_id,
+        input_topics=opr_config.inputTopics
     )
     
     shutdown_callables=[operator.stop] 
