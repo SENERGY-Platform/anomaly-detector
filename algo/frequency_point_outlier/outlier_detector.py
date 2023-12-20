@@ -47,7 +47,7 @@ class FrequencyDetector(threading.Thread, utils.StdPointOutlierDetector):
             waiting_time = self.calculate_time_diff(now, self.last_received_ts)
             print(f"Time since last input {waiting_time}")
             if self.point_is_anomalous(waiting_time):
-                print("Time since last input was anomalous - either too short or too long")
+                print(f"Anomaly occured: Detector=time Value={waiting_time}")
                 self.kafka_producer.produce(
                     self.output_topic,
                         json.dumps(

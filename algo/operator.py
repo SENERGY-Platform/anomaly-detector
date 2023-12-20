@@ -67,4 +67,5 @@ class Operator(util.OperatorBase):
             sample_is_anomalous, result = operator.run(data)
 
             if sample_is_anomalous:
+                print(f"Anomaly occured: Detector={result['type']} Value={result['value']}")
                 return result 

@@ -79,6 +79,7 @@ class OperatorBase:
         except mf_lib.exceptions.MessageIdentificationError as ex:
             print("ERROR2")
             if self.check_data_schema: 
+                print(f"Anomaly occured: Detector=schema Value={message}")
                 run_results.append({
                     "type": "schema",
                     "value": message, 
