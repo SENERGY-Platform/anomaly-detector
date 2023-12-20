@@ -58,21 +58,22 @@ class OperatorBase:
         return obj
 
     def schema_is_anomalous(self, message):
-        if self.check_data_schema:
-            for input_topic in self.__input_topics:
-                for mapping in input_topic.mappings:
-                    current_value = message
-                    keys = mapping.source.split(".")
-                    mapping_matches = True
-                    for key in keys:
-                        if key not in current_value:
-                            mapping_matches = False
-                            break 
-                        current_value = current_value[key]
-                    if mapping_matches:
-                        return False
-                    
-            return True
+        if message:
+            if self.check_data_schema:
+                for input_topic in self.__input_topics:
+                    for mapping in input_topic.mappings:
+                        current_value = message
+                        keys = mapping.source.split(".")
+                        mapping_matches = True
+                        for key in keys:
+                            if key not in current_value:
+                                mapping_matches = False
+                                break 
+                            current_value = current_value[key]
+                        if mapping_matches:
+                            return False
+                        
+                return True
         return False            
 
     def __call_run(self, message):
