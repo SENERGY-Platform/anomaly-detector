@@ -10,7 +10,7 @@ class Point_Explorer(utils.StdPointOutlierDetector):
 
     def run(self, data):
         if "energy_time" not in data or "time" not in data:
-            return 
+            return False, ""
             
         timestamp = utils.todatetime(data['energy_time']).tz_localize(None)
         new_value = float(data['energy'])
