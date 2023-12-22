@@ -76,8 +76,9 @@ class OperatorBase:
         except mf_lib.exceptions.MessageIdentificationError as ex:
             logger.error(ex)
         except Exception as e:
+            logger.error(e)
             msg_str = json.dumps(message)
-            print(f"Anomaly occured: Detector=schema Value={msg_str}")
+            logger.debug(f"Anomaly occured: Detector=schema Value={msg_str}")
             run_results.append({
                         "type": "schema",
                         "sub_type": "",
