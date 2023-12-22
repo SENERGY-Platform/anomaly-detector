@@ -81,6 +81,8 @@ class FrequencyDetector(threading.Thread, utils.StdPointOutlierDetector):
         return (ts1 - ts2).total_seconds() / 60
 
     def register_input(self, data):
+        # when "Power" key is None (==missing in the original message), it will be None in the data dict
+        print(data)
         if "energy_time" not in data or "time" not in data:
             return False, ""
             
