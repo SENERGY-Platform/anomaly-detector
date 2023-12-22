@@ -73,8 +73,11 @@ class StdPointOutlierDetector():
         
         return current_stddev, current_mean, num_datepoints, first_data_time
 
-    def point_is_anomalous(self, point):
-        return np.absolute(point - self.current_mean) > 3*self.current_stddev
+    def point_is_anomalous_high(self, point):
+        return point > 3*self.current_stddev + self.current_mean
+
+    def point_is_anomalous_low(self, point):
+        return point < 3*self.current_stddev + self.current_mean
 
     def update(self, point):
         self.current_stddev = self.calculate_std(point, self.current_stddev, self.current_mean, self.num_datepoints)

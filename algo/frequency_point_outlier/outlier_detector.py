@@ -46,7 +46,15 @@ class FrequencyDetector(threading.Thread, utils.StdPointOutlierDetector):
             now = datetime.datetime.now()
             waiting_time = self.calculate_time_diff(now, self.last_received_ts)
             print(f"Time since last input {waiting_time}")
-            if self.point_is_anomalous(waiting_time):
+            anomaly_occured = False
+            if self.point_is_anomalous_high(waiting_time):
+                sub_type = "high"
+                anomaly_occured = True
+            elif self.point_is_anomalous_low(waiting_time):
+                sub_type = "low"
+                anomaly_occured = True
+
+            if anomaly_occured:
                 print(f"Anomaly occured: Detector=time Value={waiting_time}")
                 self.kafka_producer.produce(
                     self.output_topic,
@@ -56,7 +64,7 @@ class FrequencyDetector(threading.Thread, utils.StdPointOutlierDetector):
                                 "operator_id": self.operator_id,
                                 "analytics": {
                                     "type": "time",
-                                    "sub_type": "",
+                                    "sub_type": sub_type,
                                     "value": waiting_time,
                                     "unit": "min",
                                 },
