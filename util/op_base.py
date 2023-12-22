@@ -72,6 +72,7 @@ class OperatorBase:
                                     "sub_type": "",
                                     "value": msg_str, 
                         })
+                        return run_results
 
                     for f_id in result.filter_ids:
                         run_result = self.run(
