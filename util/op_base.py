@@ -78,7 +78,7 @@ class OperatorBase:
         except Exception as e:
             msg_str = json.dumps(message)
             print(f"Anomaly occured: Detector=schema Value={msg_str}")
-            run_results.apend({
+            run_results.append({
                         "type": "schema",
                         "sub_type": "",
                         "value": msg_str, 
