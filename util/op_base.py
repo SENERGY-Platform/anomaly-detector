@@ -56,29 +56,7 @@ class OperatorBase:
         setattr(obj, f"_{OperatorBase.__name__}__stop", False)
         setattr(obj, f"_{OperatorBase.__name__}__stopped", False)
         return obj
-
-    def schema_is_anomalous(self, message):
-        # when key is missing, it will be set to None
-        # when last key is missing, input will be set to None -> and passed to operator -> so check there 
-        if message:
-
-            if self.check_data_schema:
-                for input_topic in self.__input_topics:
-                    for mapping in input_topic.mappings:
-                        current_value = message
-                        keys = mapping.source.split(".")
-                        mapping_matches = True
-                        for key in keys:
-                            if current_value == None or key not in current_value:
-                                mapping_matches = False
-                                break 
-                            current_value = current_value[key]
-                        if mapping_matches:
-                            return False
-                        
-                return True
-        return False            
-
+           
     def __call_run(self, message):
         run_results = list()
         try:
@@ -97,6 +75,14 @@ class OperatorBase:
             pass
         except mf_lib.exceptions.MessageIdentificationError as ex:
             logger.error(ex)
+        except Exception as e:
+            msg_str = json.dumps(message)
+            print(f"Anomaly occured: Detector=schema Value={msg_str}")
+            run_results.apend({
+                        "type": "schema",
+                        "sub_type": "",
+                        "value": msg_str, 
+            })
         return run_results
 
     def __route(self):
@@ -105,15 +91,6 @@ class OperatorBase:
             if not msg_obj.error():
                 message = msg_obj.value()
                 value = json.loads(message)
-                anomalous = self.schema_is_anomalous(value)
-                if anomalous:
-                    print(f"Anomaly occured: Detector=schema Value={message}")
-                    return True, {
-                        "type": "schema",
-                        "sub_type": "",
-                        "value": message, 
-                    }
-
                 results = self.__call_run(value)
                 for result in results:
                     self.__kafka_producer.produce(
@@ -149,7 +126,7 @@ class OperatorBase:
         pipeline_id: str, 
         operator_id: str, 
         poll_timeout: float = 1.0,
-        input_topics: typing.List[str] = []
+        input_topics: typing.List[str] = [],
     ):
         self.__kafka_consumer = kafka_consumer
         self.__kafka_producer = kafka_producer
