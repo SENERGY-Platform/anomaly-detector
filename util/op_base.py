@@ -62,6 +62,7 @@ class OperatorBase:
         try:
             for result in self.__filter_handler.get_results(message=message):
                 if not result.ex:
+                    print(result.data)
                     for f_id in result.filter_ids:
                         run_result = self.run(
                             selector=self.__filter_handler.get_filter_args(id=f_id)["selector"],
@@ -71,6 +72,7 @@ class OperatorBase:
                             run_results.append(run_result)
                 else:
                     logger.error(result.ex)
+                    # catches cases when middle keys are missing like ENERGY
                     msg_str = json.dumps(message)
                     logger.debug(f"Anomaly occured: Detector=schema Value={msg_str}")
                     run_results.append({
@@ -82,7 +84,6 @@ class OperatorBase:
             pass
         except mf_lib.exceptions.MessageIdentificationError as ex:
             logger.error(ex)
-            logger.error("bla")
         return run_results
 
     def __route(self):

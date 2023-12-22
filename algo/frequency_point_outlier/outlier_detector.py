@@ -80,12 +80,7 @@ class FrequencyDetector(threading.Thread, utils.StdPointOutlierDetector):
     def calculate_time_diff(self, ts1, ts2):
         return (ts1 - ts2).total_seconds() / 60
 
-    def register_input(self, data):
-        # when "Power" key is None (==missing in the original message), it will be None in the data dict
-        print(data)
-        if "energy_time" not in data or "time" not in data:
-            return False, ""
-            
+    def register_input(self, data): 
         input_timestamp = utils.todatetime(data['energy_time']).tz_localize(None)
 
         now = datetime.datetime.now()
