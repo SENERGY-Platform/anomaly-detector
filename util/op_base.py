@@ -58,8 +58,10 @@ class OperatorBase:
         return obj
 
     def schema_is_anomalous(self, message):
-        print(message)
+        # when key is missing, it will be set to None
+        # when last key is missing, input will be set to None -> and passed to operator -> so check there 
         if message:
+
             if self.check_data_schema:
                 for input_topic in self.__input_topics:
                     for mapping in input_topic.mappings:
@@ -67,9 +69,7 @@ class OperatorBase:
                         keys = mapping.source.split(".")
                         mapping_matches = True
                         for key in keys:
-                            print(key)
-                            print(current_value)
-                            if key not in current_value:
+                            if current_value == None or key not in current_value:
                                 mapping_matches = False
                                 break 
                             current_value = current_value[key]

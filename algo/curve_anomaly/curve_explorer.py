@@ -47,6 +47,9 @@ class Curve_Explorer:
 
 
     def run(self, data):
+        if "energy_time" not in data or "time" not in data:
+            return 
+            
         timestamp = utils.todatetime(data['energy_time']).tz_localize(None)
         print('energy: '+str(data['energy'])+'  '+'time: '+str(timestamp))
         if self.first_data_time == None:
