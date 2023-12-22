@@ -75,6 +75,7 @@ class OperatorBase:
             pass
         except mf_lib.exceptions.MessageIdentificationError as ex:
             logger.error(ex)
+            logger.error("bla")
         except Exception as e:
             logger.error(e)
             msg_str = json.dumps(message)
