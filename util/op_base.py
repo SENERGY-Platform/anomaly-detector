@@ -65,9 +65,10 @@ class OperatorBase:
                     for mapping in input_topic.mappings:
                         current_value = message
                         keys = mapping.source.split(".")
-                        print(keys)
                         mapping_matches = True
                         for key in keys:
+                            print(key)
+                            print(current_value)
                             if key not in current_value:
                                 mapping_matches = False
                                 break 
