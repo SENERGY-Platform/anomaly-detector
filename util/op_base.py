@@ -70,22 +70,19 @@ class OperatorBase:
                         if run_result is not None:
                             run_results.append(run_result)
                 else:
-                    logger.error("bl")
                     logger.error(result.ex)
+                    msg_str = json.dumps(message)
+                    logger.debug(f"Anomaly occured: Detector=schema Value={msg_str}")
+                    run_results.append({
+                                "type": "schema",
+                                "sub_type": "",
+                                "value": msg_str, 
+                    })
         except mf_lib.exceptions.NoFilterError:
             pass
         except mf_lib.exceptions.MessageIdentificationError as ex:
             logger.error(ex)
             logger.error("bla")
-        except Exception as e:
-            logger.error(e)
-            msg_str = json.dumps(message)
-            logger.debug(f"Anomaly occured: Detector=schema Value={msg_str}")
-            run_results.append({
-                        "type": "schema",
-                        "sub_type": "",
-                        "value": msg_str, 
-            })
         return run_results
 
     def __route(self):
