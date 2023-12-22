@@ -62,7 +62,6 @@ class OperatorBase:
         try:
             for result in self.__filter_handler.get_results(message=message):
                 if not result.ex:
-                    print(result.data)
                     # when last key is missing like power, it will be set to None by the platform connector
                     # annoying as it could be that the value is actually null which would be None, too, I guess
                     if result.data['energy'] is None or result.data['energy_time'] is None:                    
