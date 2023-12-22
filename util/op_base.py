@@ -70,6 +70,7 @@ class OperatorBase:
                         if run_result is not None:
                             run_results.append(run_result)
                 else:
+                    logger.error("bl")
                     logger.error(result.ex)
         except mf_lib.exceptions.NoFilterError:
             pass
