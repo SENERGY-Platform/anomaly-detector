@@ -21,9 +21,9 @@ def check_outlier(data_history, model):
     sample_array_x, sample_array_target = compute_x_and_y_axis(data_history)
     sample_array_target.flatten()
     predicted_target = model.predict(sample_array_x)
-    error_list = [np.abs(predicted_target[i] - sample_array_target[i]) for i in range(len(sample_array_target))]
-    quantile = np.quantile(error_list, 0.99)
-    if error_list[-1] > quantile:
+    error_list = [np.abs(predicted_target[i] - sample_array_target[i]) for i in range(len(sample_array_target))] 
+    three_sigma = np.mean(error_list[:-1]) + 3*np.std(error_list[:-1])
+    if error_list[-1] > three_sigma:
         return True
     return False
 
