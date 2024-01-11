@@ -21,6 +21,7 @@ import json
 
 from algo import curve_anomaly
 from algo import point_outlier
+from algo import consumption_anomaly
 import util
 
 class Operator(util.OperatorBase):
@@ -61,6 +62,9 @@ class Operator(util.OperatorBase):
         if frequency_monitor:
             self.frequency_monitor = frequency_monitor
 
+        self.Consumption_Explorer = consumption_anomaly.Consumption_Explorer()
+
+
     def run(self, data, selector='energy_func'):
         if self.frequency_monitor:
             self.frequency_monitor.register_input(data)
@@ -71,3 +75,4 @@ class Operator(util.OperatorBase):
             if sample_is_anomalous:
                 print(f"Anomaly occured: Detector={result['type']} Value={result['value']}")
                 return result 
+        self.Consumption_Explorer.run(data)
