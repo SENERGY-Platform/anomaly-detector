@@ -34,5 +34,5 @@ def compute_x_and_y_axis(data_history):
     first_ts_of_history = data_history[0][0]
     x_list = [(ts-first_ts_of_history).total_seconds() for ts, _ in data_history]
     sample_array_x = np.array(x_list).reshape((-1,1))
-    sample_array_target = np.array([value] for _, value in data_history)
+    sample_array_target = np.array([[value] for _, value in data_history])
     return sample_array_x, sample_array_target
