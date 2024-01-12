@@ -3,7 +3,7 @@ import numpy as np
 import pandas as pd
 
 def update_data_history(timestamp, new_value, data_history, history_time_span):
-    data_history = data_history.append((timestamp, new_value))
+    data_history.append((timestamp, new_value))
     
     if len(data_history) == 0:
         return data_history
