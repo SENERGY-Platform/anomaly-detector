@@ -3,12 +3,15 @@ import numpy as np
 import pandas as pd
 
 def update_data_history(timestamp, new_value, data_history, history_time_span):
+    data_history = data_history.append((timestamp, new_value))
+    
+    if len(data_history) == 0:
+        return data_history
+
     first_ts_of_history = data_history[0][0]
     if timestamp - first_ts_of_history > history_time_span:
-        data_history = data_history.append((timestamp, new_value))
         del data_history[0]
-    else:
-        data_history = data_history.append((timestamp, new_value))
+
     return data_history
 
 def update_linear_model(data_history):
