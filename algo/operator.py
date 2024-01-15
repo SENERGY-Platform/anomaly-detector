@@ -62,7 +62,7 @@ class Operator(util.OperatorBase):
         if frequency_monitor:
             self.frequency_monitor = frequency_monitor
 
-        self.Consumption_Explorer = consumption_anomaly.Consumption_Explorer()
+        self.Consumption_Explorer = consumption_anomaly.Consumption_Explorer(os.path.join(data_path, "consumption_explorer"))
 
 
     def run(self, data, selector='energy_func'):
