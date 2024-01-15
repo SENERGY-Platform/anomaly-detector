@@ -36,5 +36,6 @@ class Point_Explorer(utils.StdPointOutlierDetector):
                 }
                     
         self.update(new_value)
+        self.save()
         return False, {}
             
