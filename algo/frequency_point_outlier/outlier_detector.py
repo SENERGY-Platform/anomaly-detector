@@ -4,6 +4,8 @@ import time
 from algo import utils
 import json 
 
+import pandas as pd 
+
 # TODO
 # nur sinnvoll bei sensoren die regelmaesig senden
 # nicht bei erkennungssensoren z.b 
@@ -44,6 +46,11 @@ class FrequencyDetector(threading.Thread, utils.StdPointOutlierDetector):
                 continue
 
             now = datetime.datetime.now()
+
+            if now-self.operator_start_time > pd.Timedelta(2,'d'):
+                print("Wait for 2 days until detection starts -> otherwise the std calc is useless")
+                continue
+
             waiting_time = self.calculate_time_diff(now, self.last_received_ts)
             print(f"Time since last input {waiting_time}")
             anomaly_occured = False
