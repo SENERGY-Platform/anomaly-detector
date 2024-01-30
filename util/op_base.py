@@ -64,7 +64,7 @@ class OperatorBase:
                 if not result.ex:
                     # when last key is missing like power, it will be set to None by the platform connector
                     # annoying as it could be that the value is actually null which would be None, too, I guess
-                    if result.data['energy'] is None or result.data['energy_time'] is None:                    
+                    if result.data['value'] is None or result.data['time'] is None:                    
                         msg_str = json.dumps(message)
                         logger.debug(f"Anomaly occured: Detector=schema Value={msg_str}")
                         run_results.append({

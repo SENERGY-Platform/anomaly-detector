@@ -63,9 +63,9 @@ class Consumption_Explorer:
                 self.linear_model = pickle.load(f)
 
     def run(self, data):
-        timestamp = utils.todatetime(data['energy_time']).tz_localize(None)
-        new_value = float(data['energy'])
-        print('energy: '+str(new_value)+'  '+'time: '+str(timestamp))
+        timestamp = utils.todatetime(data['time']).tz_localize(None)
+        new_value = float(data['value'])
+        print('value: '+str(new_value)+'  '+'time: '+str(timestamp))
         self.data_history = consumption_utils.update_data_history(timestamp, new_value, self.data_history, self.history_time_span)
         if self.first_data_time == None:
             self.first_data_time = timestamp

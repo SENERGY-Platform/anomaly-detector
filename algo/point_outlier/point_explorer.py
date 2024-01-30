@@ -9,9 +9,9 @@ class Point_Explorer(utils.StdPointOutlierDetector):
         super().__init__(data_path)
 
     def run(self, data):
-        timestamp = utils.todatetime(data['energy_time']).tz_localize(None)
-        new_value = float(data['energy'])
-        print('energy: '+str(new_value)+'  '+'time: '+str(timestamp))
+        timestamp = utils.todatetime(data['time']).tz_localize(None)
+        new_value = float(data['value'])
+        print('value: '+str(new_value)+'  '+'time: '+str(timestamp))
         if self.first_data_time == None:
             self.first_data_time = timestamp
             
