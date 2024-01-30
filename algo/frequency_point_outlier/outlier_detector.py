@@ -47,7 +47,7 @@ class FrequencyDetector(threading.Thread, utils.StdPointOutlierDetector):
 
             now = datetime.datetime.now()
 
-            if now-self.operator_start_time > pd.Timedelta(2,'d'):
+            if now-self.operator_start_time < pd.Timedelta(2,'d'):
                 print("Wait for 2 days until detection starts -> otherwise the std calc is useless")
                 continue
 
