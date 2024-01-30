@@ -55,7 +55,7 @@ class FrequencyDetector(threading.Thread, utils.StdPointOutlierDetector):
                 anomaly_occured = True
 
             if anomaly_occured:
-                print(f"Anomaly occured: Detector=time Value={waiting_time}")
+                print(f"Anomaly occured: Type=time Sub-Type={sub_type} Value={waiting_time} Mean={self.current_mean} Std={self.current_stddev}")
                 self.kafka_producer.produce(
                     self.output_topic,
                         json.dumps(
