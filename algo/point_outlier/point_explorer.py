@@ -27,7 +27,6 @@ class Point_Explorer(utils.StdPointOutlierDetector):
                 
             if anomaly_occured:
                 print('An extreme point outlier just occured! \n\n\n\n')
-                self.update(new_value)                   
                 return True, {
                     "type": "extreme_value",
                     "sub_type": sub_type,
