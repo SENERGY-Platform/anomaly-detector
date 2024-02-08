@@ -132,14 +132,14 @@ class OperatorBase:
 
     def produce(self, value):
         self.__kafka_producer.produce(
-            self.output_topic,
+            self.__output_topic,
             json.dumps({
-                                "pipeline_id": self.pipeline_id,
-                                "operator_id": self.operator_id,
+                                "pipeline_id": self.__pipeline_id,
+                                "operator_id": self.__operator_id,
                                 "analytics": value,
                                 "time": "{}Z".format(datetime.datetime.utcnow().isoformat())
             }),
-            self.operator_id
+            self.__operator_id
         )
 
     def init(
