@@ -96,7 +96,7 @@ class Operator(util.OperatorBase):
             }
 
     def send_init_message(self):
-        self.kafka_producer.produce(
+        self.__kafka_producer.produce(
                     self.output_topic,
                         json.dumps(
                             {
