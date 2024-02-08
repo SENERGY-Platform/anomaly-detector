@@ -130,10 +130,15 @@ class OperatorBase:
                 self.__stop = True
         self.__stopped = True
 
-    def produce(self, msg):
+    def produce(self, value):
         self.__kafka_producer.produce(
             self.output_topic,
-            msg,
+            json.dumps({
+                                "pipeline_id": self.pipeline_id,
+                                "operator_id": self.operator_id,
+                                "analytics": value,
+                                "time": "{}Z".format(datetime.datetime.utcnow().isoformat())
+            }),
             self.operator_id
         )
 

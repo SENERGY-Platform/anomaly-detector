@@ -96,20 +96,7 @@ class Operator(util.OperatorBase):
             }
 
     def send_init_message(self):
-        self.produce(json.dumps(
-                            {
-                                "pipeline_id": self.pipeline_id,
-                                "operator_id": self.operator_id,
-                                "analytics": {
-                                    "type": "",
-                                    "sub_type": "",
-                                    "value": "",
-                                    "unit": "",
-                                    "initial_phase": self.generate_init_message()
-                                },
-                                "time": "{}Z".format(datetime.datetime.utcnow().isoformat())
-                            }
-        ))
+        self.produce(self.generate_init_message())
 
     def run(self, data, selector='energy_func'):
         # These operators will also run when historic data is consumed and the init phase is completed based on historic timestamps 
