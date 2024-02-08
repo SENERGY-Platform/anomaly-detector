@@ -78,7 +78,7 @@ class Operator(util.OperatorBase):
         if self.frequency_monitor and self.input_is_real_time(timestamp):
             self.frequency_monitor.register_input(timestamp)
 
-            if timestamp-self.first_data_time > self.init_phase_duration:
+            if timestamp-self.operator_start_time > self.init_phase_duration:
                 self.frequency_monitor.start_loop()
 
     def run(self, data, selector='energy_func'):
