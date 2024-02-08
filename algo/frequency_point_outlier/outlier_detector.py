@@ -26,7 +26,7 @@ class FrequencyDetector(threading.Thread, utils.StdPointOutlierDetector):
         self.last_received_ts = None
         self.kafka_producer = kafka_producer
         self.pause_event = threading.Event()
-        self.__stop = False
+        self.__stop = True
         self.operator_id = operator_id
         self.pipeline_id = pipeline_id
         self.output_topic = output_topic
@@ -35,8 +35,8 @@ class FrequencyDetector(threading.Thread, utils.StdPointOutlierDetector):
 
     def run(self):
         # Frequency Detection shall only run in real time data, not when historic data comes in 
+        print(f"Frequency Detector started -> Loop is stopped: {self.__stop}")
 
-        print("Frequency Detection Loop started!")
         while not self.__stop:
             if not self.last_received_ts:
                 print("Pause check until first real time input")

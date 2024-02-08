@@ -70,6 +70,8 @@ class Operator(util.OperatorBase):
 
         self.Consumption_Explorer = consumption_anomaly.Consumption_Explorer(os.path.join(data_path, "consumption_explorer"))
 
+    def input_is_real_time(self, timestamp):
+        return timestamp >= self.operator_start_time
 
     def run(self, data, selector='energy_func'):
         # These operators will also run when historic data is consumed and the init phase is completed based on historic timestamps 
@@ -78,7 +80,7 @@ class Operator(util.OperatorBase):
         if self.first_data_time == None:
             self.first_data_time = timestamp
 
-        if self.frequency_monitor and timestamp >= self.operator_start_time:
+        if self.frequency_monitor and self.input_is_real_time(timestamp):
             self.frequency_monitor.register_input(data)
 
             if timestamp-self.first_data_time > self.init_phase_duration:
@@ -91,7 +93,7 @@ class Operator(util.OperatorBase):
             # only return when input is realtime, historic data is only used for training
             if sample_is_anomalous:
                 print(f"Anomaly occured: Detector={result['type']} Value={result['value']}")
-                if timestamp >= self.operator_start_time:
+                if self.input_is_real_time(timestamp):
                     return result 
 
         # Check init phase
