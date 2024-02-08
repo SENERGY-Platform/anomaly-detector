@@ -43,10 +43,6 @@ class FrequencyDetector(threading.Thread, utils.StdPointOutlierDetector):
                 time.sleep(5)
                 continue
 
-            if self.pause_event.is_set():
-                print("Pause event is active (training is active)")
-                continue
-
             if self.last_received_ts < self.operator_start_time:
                 print("Last value was historic -> wait until real time data comes in")
                 time.sleep(5)
@@ -88,11 +84,8 @@ class FrequencyDetector(threading.Thread, utils.StdPointOutlierDetector):
     def stop(self):
         self.__stop = True
 
-    def pause(self):
-        self.pause_event.set()
-
-    def unpause(self):
-        self.pause_event.clear()
+    def start_loop(self):
+        self.__stop = False 
 
     def calculate_time_diff(self, ts1, ts2):
         return (ts1 - ts2).total_seconds() / 60

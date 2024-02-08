@@ -84,7 +84,7 @@ class Operator(util.OperatorBase):
             self.frequency_monitor.register_input(data)
 
             if timestamp-self.first_data_time > self.init_phase_duration:
-                self.frequency_monitor.unpause()
+                self.frequency_monitor.start_loop()
 
         for operator in self.active:
             # each operator has to check for 2days init phase
