@@ -130,6 +130,13 @@ class OperatorBase:
                 self.__stop = True
         self.__stopped = True
 
+    def produce(self, msg):
+        self.__kafka_producer.produce(
+            self.output_topic,
+            msg,
+            self.operator_id
+        )
+
     def init(
         self, 
         kafka_consumer: confluent_kafka.Consumer, 

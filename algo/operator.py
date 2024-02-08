@@ -96,9 +96,7 @@ class Operator(util.OperatorBase):
             }
 
     def send_init_message(self):
-        self.__kafka_producer.produce(
-                    self.output_topic,
-                        json.dumps(
+        self.produce(json.dumps(
                             {
                                 "pipeline_id": self.pipeline_id,
                                 "operator_id": self.operator_id,
@@ -111,9 +109,7 @@ class Operator(util.OperatorBase):
                                 },
                                 "time": "{}Z".format(datetime.datetime.utcnow().isoformat())
                             }
-                        ),
-                        self.operator_id
-                )
+        ))
 
     def run(self, data, selector='energy_func'):
         # These operators will also run when historic data is consumed and the init phase is completed based on historic timestamps 
