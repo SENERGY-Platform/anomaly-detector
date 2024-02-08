@@ -83,6 +83,7 @@ if __name__ == '__main__':
         operator_id=dep_config.operator_id,
         input_topics=opr_config.inputTopics
     )
+    operator.send_init_message()
     
     shutdown_callables=[operator.stop] 
     if opr_config.config.check_receive_time_outlier:

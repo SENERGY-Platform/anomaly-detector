@@ -71,8 +71,6 @@ class Operator(util.OperatorBase):
 
         self.Consumption_Explorer = consumption_anomaly.Consumption_Explorer(os.path.join(data_path, "consumption_explorer"))
 
-        self.send_init_message()
-
     def input_is_real_time(self, timestamp):
         return timestamp >= self.operator_start_time
 
