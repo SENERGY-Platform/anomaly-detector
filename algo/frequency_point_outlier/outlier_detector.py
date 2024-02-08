@@ -34,10 +34,12 @@ class FrequencyDetector(threading.Thread, utils.StdPointOutlierDetector):
         self.consumer_auto_offset_reset_config = consumer_auto_offset_reset_config
 
     def run(self):
+        # Frequency Detection shall only run in real time data, not when historic data comes in 
+
         print("Frequency Detection Loop started!")
         while not self.__stop:
             if not self.last_received_ts:
-                print("Pause check until first input")
+                print("Pause check until first real time input")
                 time.sleep(5)
                 continue
 
@@ -45,12 +47,12 @@ class FrequencyDetector(threading.Thread, utils.StdPointOutlierDetector):
                 print("Pause event is active (training is active)")
                 continue
 
-            now = datetime.datetime.now()
-
-            if now-self.operator_start_time < pd.Timedelta(2,'d'):
-                print("Wait for 2 days until detection starts -> otherwise the std calc is useless")
+            if self.last_received_ts < self.operator_start_time:
+                print("Last value was historic -> wait until real time data comes in")
+                time.sleep(5)
                 continue
 
+            now = datetime.datetime.now()
             waiting_time = self.calculate_time_diff(now, self.last_received_ts)
             print(f"Time since last input {waiting_time}")
             anomaly_occured = False
@@ -98,22 +100,15 @@ class FrequencyDetector(threading.Thread, utils.StdPointOutlierDetector):
     def register_input(self, data): 
         input_timestamp = utils.todatetime(data['time']).tz_localize(None)
 
-        now = datetime.datetime.now()
-
-        # Ignore old values when consuming old messages is enabled -> when using `latest` we want to keep old values for testing
-        if self.consumer_auto_offset_reset_config == "earliest" and input_timestamp < self.operator_start_time:
-            print('Input is historic -> dont use for outlier detection')
-            return 
-
         if not self.last_received_ts:
             print('First input arrived')
-            self.last_received_ts = now
+            self.last_received_ts = input_timestamp
             return 
 
-        waiting_time = self.calculate_time_diff(now, self.last_received_ts)
+        waiting_time = self.calculate_time_diff(input_timestamp, self.last_received_ts)
         print(f"Input received at: {input_timestamp} -> Waiting time of current input: {waiting_time} -> Mean={self.current_mean} Std={self.current_stddev}")
         self.update(waiting_time)
-        self.last_received_ts = now
+        self.last_received_ts = input_timestamp
 
     
         

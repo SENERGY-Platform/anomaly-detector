@@ -63,7 +63,6 @@ if __name__ == '__main__':
             data_path=os.path.join(opr_config.config.data_path, "frequency_monitor"),
             consumer_auto_offset_reset_config=dep_config.consumer_auto_offset_reset_config
         )
-        frequency_monitor.start()
 
     operator = algo.Operator(
         device_id=opr_config.config.device_id,

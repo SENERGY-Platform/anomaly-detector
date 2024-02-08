@@ -22,7 +22,10 @@ import json
 from algo import curve_anomaly
 from algo import point_outlier
 from algo import consumption_anomaly
+from algo import utils
 import util
+import pandas as pd
+import datetime
 
 class Operator(util.OperatorBase):
     def __init__(
@@ -45,6 +48,9 @@ class Operator(util.OperatorBase):
         self.active = []
         self.frequency_monitor = frequency_monitor
 
+        self.init_phase_duration = pd.Timedelta(2,'d')
+        self.operator_start_time = datetime.datetime.now()
+
         self.check_data_schema = check_data_schema
         if self.check_data_schema:
             print("Data Schema Detector is active")
@@ -66,13 +72,41 @@ class Operator(util.OperatorBase):
 
 
     def run(self, data, selector='energy_func'):
-        if self.frequency_monitor:
+        # These operators will also run when historic data is consumed and the init phase is completed based on historic timestamps 
+        timestamp = utils.todatetime(data['time']).tz_localize(None)
+        print('Input time: '+str(timestamp))
+        if self.first_data_time == None:
+            self.first_data_time = timestamp
+
+        if self.frequency_monitor and timestamp >= self.operator_start_time:
             self.frequency_monitor.register_input(data)
 
+            if timestamp-self.first_data_time > self.init_phase_duration:
+                self.frequency_monitor.unpause()
+
         for operator in self.active:
+            # each operator has to check for 2days init phase
             sample_is_anomalous, result = operator.run(data)
 
+            # only return when input is realtime, historic data is only used for training
             if sample_is_anomalous:
                 print(f"Anomaly occured: Detector={result['type']} Value={result['value']}")
-                return result 
+                if timestamp >= self.operator_start_time:
+                    return result 
+
+        # Check init phase
+        # Use input timestamp and first input for historic and real time data support 
+        if timestamp-self.first_data_time < self.init_phase_duration:
+            print("Still in initialisation phase!")
+            td_until_start = self.init_phase_duration - (timestamp - self.first_data_time)
+            minutes_until_start = int(td_until_start.total_seconds()/60)
+            return {
+                "type": "",
+                "sub_type": "",
+                "unit": "",
+                "value": "",
+                "initial_phase": f"Die Anwendung befindet sich noch für ca. {minutes_until_start} Minuten in der Initialisierungsphase"
+            }
+            
+
         self.Consumption_Explorer.run(data)
