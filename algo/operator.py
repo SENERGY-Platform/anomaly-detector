@@ -50,6 +50,7 @@ class Operator(util.OperatorBase):
 
         self.init_phase_duration = pd.Timedelta(2,'d')
         self.operator_start_time = datetime.datetime.now()
+        self.first_data_time = None
 
         self.check_data_schema = check_data_schema
         if self.check_data_schema:
@@ -73,6 +74,13 @@ class Operator(util.OperatorBase):
     def input_is_real_time(self, timestamp):
         return timestamp >= self.operator_start_time
 
+    def handle_frequency_monitor(self, timestamp):
+        if self.frequency_monitor and self.input_is_real_time(timestamp):
+            self.frequency_monitor.register_input(timestamp)
+
+            if timestamp-self.first_data_time > self.init_phase_duration:
+                self.frequency_monitor.start_loop()
+
     def run(self, data, selector='energy_func'):
         # These operators will also run when historic data is consumed and the init phase is completed based on historic timestamps 
         timestamp = utils.todatetime(data['time']).tz_localize(None)
@@ -80,11 +88,7 @@ class Operator(util.OperatorBase):
         if self.first_data_time == None:
             self.first_data_time = timestamp
 
-        if self.frequency_monitor and self.input_is_real_time(timestamp):
-            self.frequency_monitor.register_input(data)
-
-            if timestamp-self.first_data_time > self.init_phase_duration:
-                self.frequency_monitor.start_loop()
+        self.handle_frequency_monitor(timestamp)
 
         for operator in self.active:
             # each operator has to check for 2days init phase

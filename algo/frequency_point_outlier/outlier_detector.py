@@ -38,6 +38,7 @@ class FrequencyDetector(threading.Thread, utils.StdPointOutlierDetector):
         print(f"Frequency Detector started -> Loop is stopped: {self.__stop}")
 
         while not self.__stop:
+            # TODO remove both checks
             if not self.last_received_ts:
                 print("Pause check until first real time input")
                 time.sleep(5)
@@ -90,9 +91,7 @@ class FrequencyDetector(threading.Thread, utils.StdPointOutlierDetector):
     def calculate_time_diff(self, ts1, ts2):
         return (ts1 - ts2).total_seconds() / 60
 
-    def register_input(self, data): 
-        input_timestamp = utils.todatetime(data['time']).tz_localize(None)
-
+    def register_input(self, input_timestamp): 
         if not self.last_received_ts:
             print('First input arrived')
             self.last_received_ts = input_timestamp
