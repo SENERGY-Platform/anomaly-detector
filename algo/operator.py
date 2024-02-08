@@ -81,6 +81,38 @@ class Operator(util.OperatorBase):
             if timestamp-self.operator_start_time > self.init_phase_duration:
                 self.frequency_monitor.start_loop()
 
+    def generate_init_message(self, minutes_until_start=None):
+        if not minutes_until_start:
+            minutes_until_start = int(self.init_phase_duration.total_seconds()/60)
+
+        return {
+                "type": "",
+                "sub_type": "",
+                "unit": "",
+                "value": "",
+                "initial_phase": f"Die Anwendung befindet sich noch für ca. {minutes_until_start} Minuten in der Initialisierungsphase"
+            }
+
+    def send_init_message(self):
+        self.kafka_producer.produce(
+                    self.output_topic,
+                        json.dumps(
+                            {
+                                "pipeline_id": self.pipeline_id,
+                                "operator_id": self.operator_id,
+                                "analytics": {
+                                    "type": "",
+                                    "sub_type": "",
+                                    "value": "",
+                                    "unit": "",
+                                    "initial_phase": self.generate_init_message()
+                                },
+                                "time": "{}Z".format(datetime.datetime.utcnow().isoformat())
+                            }
+                        ),
+                        self.operator_id
+                )
+
     def run(self, data, selector='energy_func'):
         # These operators will also run when historic data is consumed and the init phase is completed based on historic timestamps 
         timestamp = utils.todatetime(data['time']).tz_localize(None)
@@ -106,13 +138,7 @@ class Operator(util.OperatorBase):
             print("Still in initialisation phase!")
             td_until_start = self.init_phase_duration - (timestamp - self.first_data_time)
             minutes_until_start = int(td_until_start.total_seconds()/60)
-            return {
-                "type": "",
-                "sub_type": "",
-                "unit": "",
-                "value": "",
-                "initial_phase": f"Die Anwendung befindet sich noch für ca. {minutes_until_start} Minuten in der Initialisierungsphase"
-            }
+            return self.generate_init_message(minutes_until_start)
             
 
         self.Consumption_Explorer.run(data)
