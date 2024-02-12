@@ -49,7 +49,7 @@ class Operator(util.OperatorBase):
         self.frequency_monitor = frequency_monitor
 
         self.init_phase_duration = pd.Timedelta(2,'d')
-        self.operator_start_time = datetime.datetime.now()
+        self.setup_operator_start(self.data_path)
         self.first_data_time = None
 
         self.check_data_schema = check_data_schema
@@ -70,6 +70,12 @@ class Operator(util.OperatorBase):
             self.frequency_monitor = frequency_monitor
 
         self.Consumption_Explorer = consumption_anomaly.Consumption_Explorer(os.path.join(data_path, "consumption_explorer"))
+
+    def setup_operator_start(self, data_path):
+        self.operator_start_time = utils.load_operator_start_time(data_path)
+        if not self.operator_start_time:
+            self.operator_start_time = datetime.datetime.now()
+            utils.save_operator_start_time(data_path, self.operator_start_time)
 
     def input_is_real_time(self, timestamp):
         return timestamp >= self.operator_start_time
