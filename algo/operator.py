@@ -49,7 +49,7 @@ class Operator(util.OperatorBase):
         self.frequency_monitor = frequency_monitor
 
         self.init_phase_duration = pd.Timedelta(2,'d')
-        self.setup_operator_start(self.data_path)
+        self.setup_operator_start(data_path)
         self.first_data_time = None
 
         self.check_data_schema = check_data_schema
