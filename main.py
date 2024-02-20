@@ -16,10 +16,26 @@
  
 import dotenv
 dotenv.load_dotenv()
+import json 
 
 from algo.operator import Operator
 
 from operator_lib.operator_lib import OperatorLib
 
+def handle_schema_error(error, message, produce_func):
+    # catches cases when middle keys are missing like ENERGY, but not when last key like power is missing 
+    msg_str = json.dumps(message)
+    produce_func({
+        "type": "schema",
+        "sub_type": "",
+        "value": msg_str, 
+    })
+    
+
 if __name__ == "__main__":
-    OperatorLib(Operator(), name="anomaly-detector-operator", git_info_file='git_commit')
+    OperatorLib(
+        Operator(), 
+        name="anomaly-detector-operator", 
+        git_info_file='git_commit',
+        result_error_handler=handle_schema_error
+    )
