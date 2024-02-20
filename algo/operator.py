@@ -17,59 +17,81 @@
 __all__ = ("Operator", )
 
 import os
-import json 
 
 from algo import curve_anomaly
 from algo import point_outlier
 from algo import consumption_anomaly
 from algo import utils
-import util
+from algo.frequency_point_outlier import FrequencyDetector
 import pandas as pd
 import datetime
 
-class Operator(util.OperatorBase):
-    def __init__(
-        self, 
-        device_id, 
-        data_path, 
-        device_name='Gerät',
-        check_data_extreme_outlier=True,
-        check_data_anomalies=True,
-        check_data_schema=True,
-        frequency_monitor=None,
-    ):
-        if not os.path.exists(data_path):
-            os.mkdir(data_path)
+from operator_lib.util import Config
+from operator_lib.util import OperatorBase
 
-        self.device_id = device_id
+def parse_bool(value):
+    return (value == "True" or value == "true" or value == "1")
 
-        self.device_name = device_name
+class CustomConfig(Config):
+    device_id: str = None
+    data_path = "/opt/data"
+    device_name: str = None
+    logger_level = "debug"
+    check_data_anomalies: bool = False
+    check_data_extreme_outlier: bool = True
+    check_data_schema: bool = True
+    check_receive_time_outlier: bool = True
+
+    def __init__(self, d, **kwargs):
+        super().__init__(d, **kwargs)
+        self.check_data_anomalies = parse_bool(self.check_data_anomalies)
+        self.check_data_extreme_outlier = parse_bool(self.check_data_extreme_outlier)
+        self.check_data_schema = parse_bool(self.check_data_schema)
+        self.check_receive_time_outlier = parse_bool(self.check_receive_time_outlier)
+
+class Operator(OperatorBase):
+    configType = CustomConfig
+    
+    def init(self, *args, **kwargs):
+        super().init(*args, **kwargs)
+
+        if not os.path.exists(self.config.data_path):
+            os.mkdir(self.config.data_path)
+
+        self.device_id = self.config.device_id
+
+        self.device_name = self.config.device_name
 
         self.active = []
-        self.frequency_monitor = frequency_monitor
 
         self.init_phase_duration = pd.Timedelta(2,'d')
-        self.setup_operator_start(data_path)
+        self.setup_operator_start(self.config.data_path)
         self.first_data_time = None
 
-        self.check_data_schema = check_data_schema
-        if self.check_data_schema:
+        if self.config.check_data_schema:
             print("Data Schema Detector is active")
 
-        if check_data_anomalies:
+        if self.config.check_data_anomalies:
             print("Curve Explorer is active!")
-            self.Curve_Explorer = curve_anomaly.Curve_Explorer(data_path)
+            self.Curve_Explorer = curve_anomaly.Curve_Explorer(self.config.data_path)
             self.active.append(self.Curve_Explorer)
         
-        if check_data_extreme_outlier:
+        if self.config.check_data_extreme_outlier:
             print("Point Explorer is active!")
-            self.Point_Explorer = point_outlier.Point_Explorer(os.path.join(data_path, "point_explorer"))
+            self.Point_Explorer = point_outlier.Point_Explorer(os.path.join(self.config.data_path, "point_explorer"))
             self.active.append(self.Point_Explorer)
 
-        if frequency_monitor:
-            self.frequency_monitor = frequency_monitor
+        if self.config.check_receive_time_outlier:
+            print("Frequency Monitor is active!")
+            self.frequency_monitor = FrequencyDetector(
+                kafka_produce_func=self.produce,
+                data_path=os.path.join(self.config.data_path, "frequency_monitor")
+            )
+            self.frequency_monitor.start()
 
-        self.Consumption_Explorer = consumption_anomaly.Consumption_Explorer(os.path.join(data_path, "consumption_explorer"))
+        self.Consumption_Explorer = consumption_anomaly.Consumption_Explorer(os.path.join(self.config.data_path, "consumption_explorer"))
+
+        self.send_init_message()
 
     def setup_operator_start(self, data_path):
         self.operator_start_time = utils.load_operator_start_time(data_path)
@@ -131,3 +153,16 @@ class Operator(util.OperatorBase):
             
 
         self.Consumption_Explorer.run(data)
+
+    def stop(self):
+        super().stop()
+
+        if self.check_receive_time_outlier:
+            self.frequency_monitor.stop()
+            self.frequency_monitor.save()
+
+        if self.check_data_anomalies:
+            self.Curve_Explorer.save()
+
+        if self.check_data_extreme_outlier:
+            self.Point_Explorer.save()

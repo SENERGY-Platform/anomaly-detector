@@ -13,25 +13,17 @@ import pandas as pd
 class FrequencyDetector(threading.Thread, utils.StdPointOutlierDetector):
     def __init__(
         self, 
-        kafka_producer,
-        operator_id,
-        pipeline_id,
-        output_topic,
-        data_path,
-        consumer_auto_offset_reset_config
+        kafka_produce_func,
+        data_path
     ):
         threading.Thread.__init__(self)
         utils.StdPointOutlierDetector.__init__(self, data_path)
 
         self.last_received_ts = None
-        self.kafka_producer = kafka_producer
+        self.kafka_produce_func = kafka_produce_func
         self.pause_event = threading.Event()
         self.__stop = True
-        self.operator_id = operator_id
-        self.pipeline_id = pipeline_id
-        self.output_topic = output_topic
         self.operator_start_time = datetime.datetime.now()
-        self.consumer_auto_offset_reset_config = consumer_auto_offset_reset_config
 
     def run(self):
         # Frequency Detection shall only run in real time data, not when historic data comes in 
@@ -62,23 +54,12 @@ class FrequencyDetector(threading.Thread, utils.StdPointOutlierDetector):
 
             if anomaly_occured:
                 print(f"Anomaly occured: Type=time Sub-Type={sub_type} Value={waiting_time} Mean={self.current_mean} Std={self.current_stddev}")
-                self.kafka_producer.produce(
-                    self.output_topic,
-                        json.dumps(
-                            {
-                                "pipeline_id": self.pipeline_id,
-                                "operator_id": self.operator_id,
-                                "analytics": {
-                                    "type": "time",
-                                    "sub_type": sub_type,
-                                    "value": waiting_time,
-                                    "unit": "min",
-                                },
-                                "time": "{}Z".format(datetime.datetime.utcnow().isoformat())
-                            }
-                        ),
-                        self.operator_id
-                )
+                self.kafka_produce_func.produce({
+                    "type": "time",
+                    "sub_type": sub_type,
+                    "value": waiting_time,
+                    "unit": "min",
+                })
             
             time.sleep(5)
 

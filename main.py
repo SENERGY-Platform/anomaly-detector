@@ -13,95 +13,13 @@
    See the License for the specific language governing permissions and
    limitations under the License.
 """
-
-import util
-import algo
-from algo.frequency_point_outlier import FrequencyDetector
-import json
-import confluent_kafka
-import mf_lib
-import cncr_wdg
-import signal
-import os 
+ 
 import dotenv
-
 dotenv.load_dotenv()
 
-if __name__ == '__main__':
-    util.print_init(name="anomaly-detector-operator", git_info_file="git_commit")
-    dep_config = util.DeploymentConfig()
-    opr_config = util.OperatorConfig(json.loads(dep_config.config))
-    util.init_logger(opr_config.config.logger_level)
-    util.logger.debug(f"deployment config: {dep_config}")
-    util.logger.debug(f"operator config: {opr_config}")
-    filter_handler = mf_lib.FilterHandler()
-    for it in opr_config.inputTopics:
-        filter_handler.add_filter(util.gen_filter(input_topic=it, selectors=opr_config.config.selectors, pipeline_id=dep_config.pipeline_id))
-    kafka_brokers = ",".join(util.get_kafka_brokers(zk_hosts=dep_config.zk_quorum, zk_path=dep_config.zk_brokers_path))
-    kafka_consumer_config = {
-        "metadata.broker.list": kafka_brokers,
-        "group.id": dep_config.config_application_id,
-        "auto.offset.reset": dep_config.consumer_auto_offset_reset_config,
-        "max.poll.interval.ms": 6000000
-    }
-    kafka_producer_config = {
-        "metadata.broker.list": kafka_brokers,
-    }
-    util.logger.debug(f"kafka consumer config: {kafka_consumer_config}")
-    util.logger.debug(f"kafka producer config: {kafka_producer_config}")
-    kafka_consumer = confluent_kafka.Consumer(kafka_consumer_config, logger=util.logger)
-    kafka_producer = confluent_kafka.Producer(kafka_producer_config, logger=util.logger)
-    
-    frequency_monitor = None
-    if opr_config.config.check_receive_time_outlier:
-        print("Frequency Monitor is active!")
-        frequency_monitor = FrequencyDetector(
-            kafka_producer=kafka_producer,
-            operator_id=dep_config.operator_id,
-            pipeline_id=dep_config.pipeline_id,
-            output_topic=dep_config.output,
-            data_path=os.path.join(opr_config.config.data_path, "frequency_monitor"),
-            consumer_auto_offset_reset_config=dep_config.consumer_auto_offset_reset_config
-        )
-        frequency_monitor.start()
+from algo.operator import Operator
 
-    operator = algo.Operator(
-        device_id=opr_config.config.device_id,
-        data_path=opr_config.config.data_path,
-        device_name=opr_config.config.device_name,
-        check_data_schema=opr_config.config.check_data_schema,
-        check_data_anomalies=opr_config.config.check_data_anomalies,
-        check_data_extreme_outlier=opr_config.config.check_data_extreme_outlier,
-        frequency_monitor=frequency_monitor
-    )
-    operator.init(
-        kafka_consumer=kafka_consumer,
-        kafka_producer=kafka_producer,
-        filter_handler=filter_handler,
-        output_topic=dep_config.output,
-        pipeline_id=dep_config.pipeline_id,
-        operator_id=dep_config.operator_id,
-        input_topics=opr_config.inputTopics
-    )
-    operator.send_init_message()
-    
-    shutdown_callables=[operator.stop] 
-    if opr_config.config.check_receive_time_outlier:
-        shutdown_callables += [frequency_monitor.stop, frequency_monitor.save]
+from operator_lib.operator_lib import OperatorLib
 
-    if opr_config.config.check_data_anomalies:
-        shutdown_callables.append(operator.Curve_Explorer.save)
-
-    if opr_config.config.check_data_extreme_outlier:
-        shutdown_callables.append(operator.Point_Explorer.save)
-
-    watchdog = cncr_wdg.Watchdog(
-        monitor_callables=[operator.is_alive],
-        shutdown_callables=shutdown_callables,
-        join_callables=[kafka_consumer.close, kafka_producer.flush],
-        shutdown_signals=[signal.SIGTERM, signal.SIGINT, signal.SIGABRT],
-        logger=util.logger
-    )
-    watchdog.start(delay=5)
-    operator.start()
-    watchdog.join()
+if __name__ == "__main__":
+    OperatorLib(Operator(), name="anomaly-detector-operator", git_info_file='git_commit')
