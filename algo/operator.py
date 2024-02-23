@@ -81,6 +81,7 @@ class Operator(OperatorBase):
             self.Point_Explorer = point_outlier.Point_Explorer(os.path.join(self.config.data_path, "point_explorer"))
             self.active.append(self.Point_Explorer)
 
+        self.frequency_monitor = None
         if self.config.check_receive_time_outlier:
             print("Frequency Monitor is active!")
             self.frequency_monitor = FrequencyDetector(
