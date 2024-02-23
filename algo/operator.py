@@ -157,12 +157,12 @@ class Operator(OperatorBase):
     def stop(self):
         super().stop()
 
-        if self.check_receive_time_outlier:
+        if self.config.check_receive_time_outlier:
             self.frequency_monitor.stop()
             self.frequency_monitor.save()
 
-        if self.check_data_anomalies:
+        if self.config.check_data_anomalies:
             self.Curve_Explorer.save()
 
-        if self.check_data_extreme_outlier:
+        if self.config.check_data_extreme_outlier:
             self.Point_Explorer.save()
