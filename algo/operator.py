@@ -52,7 +52,8 @@ class CustomConfig(Config):
         self.check_data_extreme_outlier = parse_bool(self.check_data_extreme_outlier)
         self.check_data_schema = parse_bool(self.check_data_schema)
         self.check_receive_time_outlier = parse_bool(self.check_receive_time_outlier)
-
+        self.init_phase_length = float(self.init_phase_length)
+        
 class Operator(OperatorBase):
     configType = CustomConfig
     
