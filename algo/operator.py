@@ -41,6 +41,8 @@ class CustomConfig(Config):
     check_data_extreme_outlier: bool = True
     check_data_schema: bool = True
     check_receive_time_outlier: bool = True
+    init_phase_length: float = 2
+    init_phase_level: str = "d"
 
     def __init__(self, d, **kwargs):
         super().__init__(d, **kwargs)
@@ -64,7 +66,7 @@ class Operator(OperatorBase):
 
         self.active = []
 
-        self.init_phase_duration = pd.Timedelta(2,'d')
+        self.init_phase_duration = pd.Timedelta(self.init_phase_length, self.init_phase_level)
         self.setup_operator_start(self.config.data_path)
         self.first_data_time = None
 
@@ -103,7 +105,11 @@ class Operator(OperatorBase):
     def input_is_real_time(self, timestamp):
         return timestamp >= self.operator_start_time
 
+    def operator_is_in_init_phase(self, timestamp):
+        return timestamp-self.first_data_time < self.init_phase_duration
+
     def handle_frequency_monitor(self, timestamp):
+        # Historic data comes not with pauses in between
         if self.frequency_monitor and self.input_is_real_time(timestamp):
             self.frequency_monitor.register_input(timestamp)
 
@@ -139,14 +145,14 @@ class Operator(OperatorBase):
             sample_is_anomalous, result = operator.run(data)
 
             # only return when input is realtime, historic data is only used for training
-            if sample_is_anomalous:
+            if sample_is_anomalous and not self.operator_is_in_init_phase(timestamp):
                 print(f"Anomaly occured: Detector={result['type']} Value={result['value']}")
                 if self.input_is_real_time(timestamp):
                     return result 
 
         # Check init phase
         # Use input timestamp and first input for historic and real time data support 
-        if timestamp-self.first_data_time < self.init_phase_duration:
+        if self.operator_is_in_init_phase(timestamp):
             print("Still in initialisation phase!")
             td_until_start = self.init_phase_duration - (timestamp - self.first_data_time)
             minutes_until_start = int(td_until_start.total_seconds()/60)

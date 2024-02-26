@@ -4,7 +4,8 @@ import pandas as pd
 import torch
 
 __all__ = ("Curve_Explorer",)
-    
+LOG_PREFIX = "CURVE_DETECTOR"
+
 class Curve_Explorer:
     def __init__(self, data_path):
         self.filename_dict = {"data": f'{data_path}/data.parquet', "initial_time": f'{data_path}/initial_time.pickle', "first_data_time": f'{data_path}/first_data_time.pickle',
@@ -48,7 +49,6 @@ class Curve_Explorer:
 
     def run(self, data):
         timestamp = utils.todatetime(data['time']).tz_localize(None)
-        print('value: '+str(data['value'])+'  '+'time: '+str(timestamp))
         if self.first_data_time == None:
             self.first_data_time = timestamp
             self.last_training_time = self.first_data_time

@@ -3,6 +3,7 @@ from algo import utils
 
 
 __all__ = ("Point_Explorer",)
+LOG_PREFIX = "POINT_DETECTOR"
 
 class Point_Explorer(utils.StdPointOutlierDetector):
     def __init__(self, data_path):
@@ -11,7 +12,6 @@ class Point_Explorer(utils.StdPointOutlierDetector):
     def run(self, data):
         timestamp = utils.todatetime(data['time']).tz_localize(None)
         new_value = float(data['value'])
-        print('value: '+str(new_value)+'  '+'time: '+str(timestamp))
         if self.first_data_time == None:
             self.first_data_time = timestamp
             
@@ -26,7 +26,7 @@ class Point_Explorer(utils.StdPointOutlierDetector):
                 anomaly_occured = True
                 
             if anomaly_occured:
-                print('An extreme point outlier just occured! \n\n\n\n')
+                print(f'{LOG_PREFIX}: An extreme point outlier just occured! \n\n\n\n')
                 return True, {
                     "type": "extreme_value",
                     "sub_type": sub_type,
