@@ -29,6 +29,8 @@ import datetime
 from operator_lib.util import Config
 from operator_lib.util import OperatorBase
 
+LOG_PREFIX = "MAIN"
+
 def parse_bool(value):
     return (value == "True" or value == "true" or value == "1")
 
@@ -71,21 +73,21 @@ class Operator(OperatorBase):
         self.first_data_time = None
 
         if self.config.check_data_schema:
-            print("Data Schema Detector is active")
+            print(f"{LOG_PREFIX}: Data Schema Detector is active")
 
         if self.config.check_data_anomalies:
-            print("Curve Explorer is active!")
+            print(f"{LOG_PREFIX}: Curve Explorer is active!")
             self.Curve_Explorer = curve_anomaly.Curve_Explorer(self.config.data_path)
             self.active.append(self.Curve_Explorer)
         
         if self.config.check_data_extreme_outlier:
-            print("Point Explorer is active!")
+            print(f"{LOG_PREFIX}: Point Explorer is active!")
             self.Point_Explorer = point_outlier.Point_Explorer(os.path.join(self.config.data_path, "point_explorer"))
             self.active.append(self.Point_Explorer)
 
         self.frequency_monitor = None
         if self.config.check_receive_time_outlier:
-            print("Frequency Monitor is active!")
+            print(f"{LOG_PREFIX}: Frequency Monitor is active!")
             self.frequency_monitor = FrequencyDetector(
                 kafka_produce_func=self.produce,
                 data_path=os.path.join(self.config.data_path, "frequency_monitor")
@@ -131,12 +133,25 @@ class Operator(OperatorBase):
     def send_init_message(self):
         self.produce(self.generate_init_message())
 
+    def update_init_message(self, timestamp):
+        if not self.operator_is_in_init_phase(timestamp):
+            self.product({
+                "type": "",
+                "sub_type": "",
+                "unit": "",
+                "value": "",
+                "initial_phase": ""
+            })
+
     def run(self, data, selector='energy_func'):
         # These operators will also run when historic data is consumed and the init phase is completed based on historic timestamps 
         timestamp = utils.todatetime(data['time']).tz_localize(None)
-        print('Input time: '+str(timestamp))
+        print(f'{LOG_PREFIX}: Input time: {str(timestamp)} Value: {str(data["value"])}')
         if self.first_data_time == None:
             self.first_data_time = timestamp
+
+        # "Reset" init phase message first time its over
+        self.update_init_message(timestamp)
 
         self.handle_frequency_monitor(timestamp)
 
@@ -146,14 +161,14 @@ class Operator(OperatorBase):
 
             # only return when input is realtime, historic data is only used for training
             if sample_is_anomalous and not self.operator_is_in_init_phase(timestamp):
-                print(f"Anomaly occured: Detector={result['type']} Value={result['value']}")
+                print(f"{LOG_PREFIX}: Anomaly occured: Detector={result['type']} Value={result['value']}")
                 if self.input_is_real_time(timestamp):
                     return result 
 
         # Check init phase
         # Use input timestamp and first input for historic and real time data support 
         if self.operator_is_in_init_phase(timestamp):
-            print("Still in initialisation phase!")
+            print(f"{LOG_PREFIX}: Still in initialisation phase!")
             td_until_start = self.init_phase_duration - (timestamp - self.first_data_time)
             minutes_until_start = int(td_until_start.total_seconds()/60)
             return self.generate_init_message(minutes_until_start)
