@@ -68,7 +68,7 @@ class Operator(OperatorBase):
 
         self.active = []
 
-        self.init_phase_duration = pd.Timedelta(self.init_phase_length, self.init_phase_level)
+        self.init_phase_duration = pd.Timedelta(self.config.init_phase_length, self.config.init_phase_level)
         self.setup_operator_start(self.config.data_path)
         self.first_data_time = None
 
