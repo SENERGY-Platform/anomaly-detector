@@ -71,6 +71,7 @@ class Operator(OperatorBase):
 
         self.init_phase_duration = pd.Timedelta(self.config.init_phase_length, self.config.init_phase_level)
         self.setup_operator_start(self.config.data_path)
+        self.setup_first_input_time(self.config.data_path)
         self.first_data_time = None
 
         if self.config.check_data_schema:
@@ -105,6 +106,9 @@ class Operator(OperatorBase):
             self.operator_start_time = datetime.datetime.now()
             utils.save_operator_start_time(data_path, self.operator_start_time)
 
+    def setup_first_input_time(self, data_path):
+        self.first_data_time = utils.load_first_input_time(data_path)
+    
     def input_is_real_time(self, timestamp):
         return timestamp >= self.operator_start_time
 
@@ -113,10 +117,13 @@ class Operator(OperatorBase):
 
     def handle_frequency_monitor(self, timestamp):
         # Historic data comes not with pauses in between
-        if self.frequency_monitor and self.input_is_real_time(timestamp):
+        if not self.frequency_monitor:
+            return 
+        
+        if self.input_is_real_time(timestamp):
             self.frequency_monitor.register_input(timestamp)
 
-            if timestamp-self.operator_start_time > self.init_phase_duration:
+            if not self.operator_is_in_init_phase(timestamp):
                 self.frequency_monitor.start_loop()
 
     def generate_init_message(self, minutes_until_start=None):
@@ -150,6 +157,8 @@ class Operator(OperatorBase):
         print(f'{LOG_PREFIX}: Input time: {str(timestamp)} Value: {str(data["value"])}')
         if self.first_data_time == None:
             self.first_data_time = timestamp
+            utils.save_first_input_time(self.config.data_path, self.first_data_time)
+    
 
         # "Reset" init phase message first time its over
         self.update_init_message(timestamp)

@@ -6,8 +6,9 @@ __all__ = ("Point_Explorer",)
 LOG_PREFIX = "POINT_DETECTOR"
 
 class Point_Explorer(utils.StdPointOutlierDetector):
-    def __init__(self, data_path):
+    def __init__(self, data_path, config):
         super().__init__(data_path)
+        self.init_phase_duration = pd.Timedelta(config.init_phase_length, config.init_phase_level)
 
     def run(self, data):
         timestamp = utils.todatetime(data['time']).tz_localize(None)
@@ -15,7 +16,7 @@ class Point_Explorer(utils.StdPointOutlierDetector):
         if self.first_data_time == None:
             self.first_data_time = timestamp
             
-        if timestamp-self.first_data_time > pd.Timedelta(2,'d'):
+        if timestamp-self.first_data_time > self.init_phase_duration:
             anomaly_occured = False
             if self.point_is_anomalous_high(new_value):
                 sub_type = "high"
