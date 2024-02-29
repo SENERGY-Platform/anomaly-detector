@@ -80,7 +80,7 @@ class Curve_Explorer:
         else:
             return False, ''
 
-    def update(self, data):
+    def update_with_new_value(self, data):
         pass
 
     def create_result(self, message, value, unit, sub_type):
