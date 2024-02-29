@@ -140,7 +140,7 @@ class Operator(OperatorBase):
         if self.operator_is_in_init_phase(timestamp) or not self.input_is_real_time(timestamp):
             return 
 
-        self.product({
+        self.produce({
                 "type": "",
                 "sub_type": "",
                 "unit": "",
