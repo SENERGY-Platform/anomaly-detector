@@ -32,7 +32,7 @@ class Point_Explorer(utils.StdPointOutlierDetector):
         
         return False, {}
 
-    def update(self, value):         
+    def update_with_new_value(self, value):         
         self.update(value)
         self.save()
             
