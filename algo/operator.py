@@ -137,7 +137,7 @@ class Operator(OperatorBase):
         self.produce(self.generate_init_message())
 
     def update_init_message(self, timestamp):
-        if self.operator_is_in_init_phase(timestamp) or self.input_is_real_time(timestamp):
+        if self.operator_is_in_init_phase(timestamp) or not self.input_is_real_time(timestamp):
             return 
 
         self.product({
