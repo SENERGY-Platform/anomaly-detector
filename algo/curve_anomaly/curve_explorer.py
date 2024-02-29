@@ -79,7 +79,9 @@ class Curve_Explorer:
             return True, self.create_result(f'Bei der letzten Benutzung wurde eine ungewöhnliche Laufdauer festgestellt.', "", "", "uncontinious_device_length")
         else:
             return False, ''
-        
+
+    def update(self, data):
+        pass
 
     def create_result(self, message, value, unit, sub_type):
         return {

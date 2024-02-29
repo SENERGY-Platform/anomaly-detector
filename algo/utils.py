@@ -7,7 +7,6 @@ import os
 __all__ = ("todatetime", "save_data", "calculate_std", "calculate_mean")
 
 FILE_NAME_OPERATOR_START_TIME = "operator_start_time.pickle"
-FILE_NAME_OPERATOR_FIRST_INPUT = "first_input_time.pickle"
 
 class StdPointOutlierDetector():
     def __init__(self, data_path):
@@ -198,17 +197,3 @@ def save_operator_start_time(data_path, timestamp):
     with open(file_path, 'wb') as f:
         pickle.dump(timestamp, f)
 
-def load_first_input_time(data_path):
-    file_path = os.path.join(data_path, FILE_NAME_OPERATOR_FIRST_INPUT)
-    if not os.path.exists(file_path):
-        return None 
-    with open(file_path, 'rb') as f:
-        timestamp = pickle.load(f)
-        return timestamp
-
-def save_first_input_time(data_path, timestamp):
-    if not os.path.exists(data_path):
-        os.makedirs(data_path)
-    file_path = os.path.join(data_path, FILE_NAME_OPERATOR_FIRST_INPUT)
-    with open(file_path, 'wb') as f:
-        pickle.dump(timestamp, f)

@@ -71,8 +71,6 @@ class Operator(OperatorBase):
 
         self.init_phase_duration = pd.Timedelta(self.config.init_phase_length, self.config.init_phase_level)
         self.setup_operator_start(self.config.data_path)
-        self.setup_first_input_time(self.config.data_path)
-        self.first_data_time = None
 
         if self.config.check_data_schema:
             print(f"{LOG_PREFIX}: Data Schema Detector is active")
@@ -106,14 +104,11 @@ class Operator(OperatorBase):
             self.operator_start_time = datetime.datetime.now()
             utils.save_operator_start_time(data_path, self.operator_start_time)
 
-    def setup_first_input_time(self, data_path):
-        self.first_data_time = utils.load_first_input_time(data_path)
-    
     def input_is_real_time(self, timestamp):
         return timestamp >= self.operator_start_time
 
     def operator_is_in_init_phase(self, timestamp):
-        return timestamp-self.first_data_time < self.init_phase_duration
+        return timestamp-self.operator_start_time < self.init_phase_duration
 
     def handle_frequency_monitor(self, timestamp):
         # Historic data comes not with pauses in between
@@ -142,44 +137,45 @@ class Operator(OperatorBase):
         self.produce(self.generate_init_message())
 
     def update_init_message(self, timestamp):
-        if not self.operator_is_in_init_phase(timestamp):
-            self.product({
+        if self.operator_is_in_init_phase(timestamp) or self.input_is_real_time(timestamp):
+            return 
+
+        self.product({
                 "type": "",
                 "sub_type": "",
                 "unit": "",
                 "value": "",
                 "initial_phase": ""
-            })
+        })
 
     def run(self, data, selector='energy_func'):
         # These operators will also run when historic data is consumed and the init phase is completed based on historic timestamps 
         timestamp = utils.todatetime(data['time']).tz_localize(None)
         print(f'{LOG_PREFIX}: Input time: {str(timestamp)} Value: {str(data["value"])}')
-        if self.first_data_time == None:
-            self.first_data_time = timestamp
-            utils.save_first_input_time(self.config.data_path, self.first_data_time)
-    
 
         # "Reset" init phase message first time its over
         self.update_init_message(timestamp)
 
         self.handle_frequency_monitor(timestamp)
 
-        for operator in self.active:
-            # each operator has to check for 2days init phase
-            sample_is_anomalous, result = operator.run(data)
+        if not self.operator_is_in_init_phase(timestamp) and self.input_is_real_time(timestamp):
+            for detector in self.active:
+                sample_is_anomalous, result = detector.check(data)
 
-            # only return when input is realtime, historic data is only used for training
-            if sample_is_anomalous and not self.operator_is_in_init_phase(timestamp):
-                print(f"{LOG_PREFIX}: Anomaly occured: Detector={result['type']} Value={result['value']}")
-                if self.input_is_real_time(timestamp):
-                    return result 
+                if sample_is_anomalous:
+                    print(f"{LOG_PREFIX}: Anomaly occured: Detector={result['type']} Value={result['value']}")
+                    if self.input_is_real_time(timestamp):
+                        return result 
+
+        # Update detectors
+        for detector in self.active:
+            detector.update(data)
 
         # Check init phase
         # Use input timestamp and first input for historic and real time data support 
         if self.operator_is_in_init_phase(timestamp):
-            print(f"{LOG_PREFIX}: Still in initialisation phase! {timestamp} - {self.first_data_time} < {self.init_phase_duration}")
-            td_until_start = self.init_phase_duration - (timestamp - self.first_data_time)
+            print(f"{LOG_PREFIX}: Still in initialisation phase! {timestamp} - {self.operator_start_time} < {self.init_phase_duration}")
+            td_until_start = self.init_phase_duration - (timestamp - self.operator_start_time)
             minutes_until_start = int(td_until_start.total_seconds()/60)
             return self.generate_init_message(minutes_until_start)
             
