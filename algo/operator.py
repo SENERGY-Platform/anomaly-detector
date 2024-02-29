@@ -169,7 +169,7 @@ class Operator(OperatorBase):
 
         # Update detectors
         for detector in self.active:
-            detector.update_with_new_value(data)
+            detector.update_with_new_value(data["value"])
 
         # Check init phase
         # Use input timestamp and first input for historic and real time data support 
