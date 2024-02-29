@@ -47,7 +47,7 @@ class Curve_Explorer:
 
 
 
-    def run(self, data):
+    def check(self, data):
         timestamp = utils.todatetime(data['time']).tz_localize(None)
         if self.first_data_time == None:
             self.first_data_time = timestamp

@@ -7,6 +7,7 @@ import os
 __all__ = ("todatetime", "save_data", "calculate_std", "calculate_mean")
 
 FILE_NAME_OPERATOR_START_TIME = "operator_start_time.pickle"
+FILE_NAME_INIT_PHASE_RESET = "init_phase_was_resetted.pickle"
 
 class StdPointOutlierDetector():
     def __init__(self, data_path):
@@ -182,18 +183,30 @@ def load_data(filename_dict, data_list, initial_time, first_data_time, last_trai
 
     return data_list, initial_time, first_data_time, last_training_time, device_type, anomalies, training_performance, loads, model
 
-def load_operator_start_time(data_path):
-    file_path = os.path.join(data_path, FILE_NAME_OPERATOR_START_TIME)
+def load(data_path, file_name):
+    file_path = os.path.join(data_path, file_name)
     if not os.path.exists(file_path):
         return None 
     with open(file_path, 'rb') as f:
         timestamp = pickle.load(f)
         return timestamp
 
-def save_operator_start_time(data_path, timestamp):
+def save(data_path, file_name, value):
     if not os.path.exists(data_path):
         os.makedirs(data_path)
-    file_path = os.path.join(data_path, FILE_NAME_OPERATOR_START_TIME)
+    file_path = os.path.join(data_path, file_name)
     with open(file_path, 'wb') as f:
-        pickle.dump(timestamp, f)
+        pickle.dump(value, f)
+
+def load_operator_start_time(data_path):
+    return load(data_path, FILE_NAME_OPERATOR_START_TIME)
+
+def save_operator_start_time(data_path, timestamp):
+    save(data_path, FILE_NAME_OPERATOR_START_TIME, timestamp)
+
+def load_init_phase_was_resetted(data_path):
+    return load(data_path, FILE_NAME_INIT_PHASE_RESET)
+
+def save_init_phase_was_resetted(data_path, init_phase_was_resetted):
+    save(data_path, FILE_NAME_INIT_PHASE_RESET, init_phase_was_resetted)
 

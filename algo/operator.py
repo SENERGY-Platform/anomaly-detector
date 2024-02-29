@@ -71,6 +71,7 @@ class Operator(OperatorBase):
 
         self.init_phase_duration = pd.Timedelta(self.config.init_phase_length, self.config.init_phase_level)
         self.setup_operator_start(self.config.data_path)
+        self.init_phase_resetted = utils.load_init_phase_was_resetted(self.config.data_path)
 
         if self.config.check_data_schema:
             print(f"{LOG_PREFIX}: Data Schema Detector is active")
@@ -136,8 +137,8 @@ class Operator(OperatorBase):
     def send_init_message(self):
         self.produce(self.generate_init_message())
 
-    def update_init_message(self, timestamp):
-        if self.operator_is_in_init_phase(timestamp) or not self.input_is_real_time(timestamp):
+    def reset_init_message(self, timestamp):
+        if self.operator_is_in_init_phase(timestamp) or not self.input_is_real_time(timestamp) and self.init_phase_resetted:
             return 
 
         self.produce({
@@ -147,6 +148,8 @@ class Operator(OperatorBase):
                 "value": "",
                 "initial_phase": ""
         })
+        self.init_phase_resetted = True
+        utils.save_init_phase_was_resetted(self.config.data_path, True)
 
     def run(self, data, selector='energy_func'):
         # These operators will also run when historic data is consumed and the init phase is completed based on historic timestamps 
@@ -154,7 +157,7 @@ class Operator(OperatorBase):
         print(f'{LOG_PREFIX}: Input time: {str(timestamp)} Value: {str(data["value"])}')
 
         # "Reset" init phase message first time its over
-        self.update_init_message(timestamp)
+        self.reset_init_message(timestamp)
 
         self.handle_frequency_monitor(timestamp)
 
