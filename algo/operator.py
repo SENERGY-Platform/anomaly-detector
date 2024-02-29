@@ -169,7 +169,7 @@ class Operator(OperatorBase):
         # Check init phase
         # Use input timestamp and first input for historic and real time data support 
         if self.operator_is_in_init_phase(timestamp):
-            print(f"{LOG_PREFIX}: Still in initialisation phase!")
+            print(f"{LOG_PREFIX}: Still in initialisation phase! {timestamp} - {self.first_data_time} < {self.init_phase_duration}")
             td_until_start = self.init_phase_duration - (timestamp - self.first_data_time)
             minutes_until_start = int(td_until_start.total_seconds()/60)
             return self.generate_init_message(minutes_until_start)
