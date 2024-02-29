@@ -75,10 +75,10 @@ class Operator(OperatorBase):
         if self.config.check_data_schema:
             print(f"{LOG_PREFIX}: Data Schema Detector is active")
 
-        if self.config.check_data_anomalies:
-            print(f"{LOG_PREFIX}: Curve Explorer is active!")
-            self.Curve_Explorer = curve_anomaly.Curve_Explorer(self.config.data_path)
-            self.active.append(self.Curve_Explorer)
+        #if self.config.check_data_anomalies:
+            #print(f"{LOG_PREFIX}: Curve Explorer is active!")
+            #self.Curve_Explorer = curve_anomaly.Curve_Explorer(self.config.data_path)
+            #self.active.append(self.Curve_Explorer)
         
         if self.config.check_data_extreme_outlier:
             print(f"{LOG_PREFIX}: Point Explorer is active!")
