@@ -103,7 +103,9 @@ class Operator(OperatorBase):
         self.operator_start_time = utils.load_operator_start_time(data_path)
         if not self.operator_start_time:
             self.operator_start_time = datetime.datetime.now()
+            print(f"Store operator start time not found -> create and save")
             utils.save_operator_start_time(data_path, self.operator_start_time)
+        print(f"Operator start time: {self.operator_start_time}")
 
     def input_is_real_time(self, timestamp):
         return timestamp >= self.operator_start_time
