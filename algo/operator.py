@@ -153,7 +153,7 @@ class Operator(OperatorBase):
         self.init_phase_resetted = True
         utils.save_init_phase_was_resetted(self.config.data_path, True)
 
-    def run(self, data, selector='energy_func'):
+    def run(self, data, selector='energy_func', topic=''):
         # These operators will also run when historic data is consumed and the init phase is completed based on historic timestamps 
         timestamp = utils.todatetime(data['time']).tz_localize(None)
         util.logger.debug(f'{LOG_PREFIX}: Input time: {str(timestamp)} Value: {str(data["value"])}')
