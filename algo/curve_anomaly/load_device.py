@@ -1,9 +1,9 @@
 import numpy as np
 import pandas as pd
 from sklearn.ensemble import IsolationForest
-import pickle
 
 from . import preprocessing
+import operator_lib.util as util
 
 def extract_loads(time_series):
     list_of_loads = []
@@ -65,7 +65,7 @@ def train_test(data_list, loads, anomalies):
         anomalous_length_indices = find_anomalous_lengths(list_of_normalized_loads)
         if len(loads)-1 in anomalous_length_indices:
             anomalies.append((loads[-1],'length of load'))
-            print('A load of anomalous length just ended!')
+            util.logger.debug('A load of anomalous length just ended!')
             return 'load_device_anomaly_length', loads, anomalies
         array_of_normalized_loads = padding(list_of_normalized_loads, max([len(load) for load in list_of_normalized_loads]))
         model=IsolationForest(contamination=0.01)
@@ -73,7 +73,7 @@ def train_test(data_list, loads, anomalies):
         predictions = model.predict(array_of_normalized_loads)
         if predictions[-1] < 0:
             anomalies.append((loads[-1],'load'))
-            print('A load with an anomalous power curve just ended!')
+            util.logger.debug('A load with an anomalous power curve just ended!')
             return 'load_device_anomaly_power_curve', loads, anomalies
         return None, loads, anomalies
     return None, loads, anomalies

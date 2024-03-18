@@ -1,5 +1,6 @@
 import pandas as pd
 from algo import utils
+import operator_lib.util as util
 
 
 __all__ = ("Point_Explorer",)
@@ -22,7 +23,7 @@ class Point_Explorer(utils.StdPointOutlierDetector):
             anomaly_occured = True
                 
         if anomaly_occured:
-            print(f'{LOG_PREFIX}: An extreme point outlier just occured! \n\n\n\n')
+            util.logger.info(f'{LOG_PREFIX}: An extreme point outlier just occured! \n\n\n\n')
             return True, {
                     "type": "extreme_value",
                     "sub_type": sub_type,

@@ -26,6 +26,7 @@ from algo.frequency_point_outlier import FrequencyDetector
 import pandas as pd
 import datetime
 
+import operator_lib.util as util
 from operator_lib.util import Config
 from operator_lib.util import OperatorBase
 
@@ -38,7 +39,7 @@ class CustomConfig(Config):
     device_id: str = None
     data_path = "/opt/data"
     device_name: str = None
-    logger_level = "debug"
+    logger_level = "info"
     check_data_anomalies: bool = False
     check_data_extreme_outlier: bool = True
     check_data_schema: bool = True
@@ -74,7 +75,7 @@ class Operator(OperatorBase):
         self.init_phase_resetted = utils.load_init_phase_was_resetted(self.config.data_path)
 
         if self.config.check_data_schema:
-            print(f"{LOG_PREFIX}: Data Schema Detector is active")
+            util.logger.info(f"{LOG_PREFIX}: Data Schema Detector is active")
 
         #if self.config.check_data_anomalies:
             #print(f"{LOG_PREFIX}: Curve Explorer is active!")
@@ -82,13 +83,13 @@ class Operator(OperatorBase):
             #self.active.append(self.Curve_Explorer)
         
         if self.config.check_data_extreme_outlier:
-            print(f"{LOG_PREFIX}: Point Explorer is active!")
+            util.logger.info(f"{LOG_PREFIX}: Point Explorer is active!")
             self.Point_Explorer = point_outlier.Point_Explorer(os.path.join(self.config.data_path, "point_explorer"))
             self.active.append(self.Point_Explorer)
 
         self.frequency_monitor = None
         if self.config.check_receive_time_outlier:
-            print(f"{LOG_PREFIX}: Frequency Monitor is active!")
+            util.logger.info(f"{LOG_PREFIX}: Frequency Monitor is active!")
             self.frequency_monitor = FrequencyDetector(
                 kafka_produce_func=self.produce,
                 data_path=os.path.join(self.config.data_path, "frequency_monitor")
@@ -103,9 +104,9 @@ class Operator(OperatorBase):
         self.operator_start_time = utils.load_operator_start_time(data_path)
         if not self.operator_start_time:
             self.operator_start_time = datetime.datetime.now()
-            print(f"Store operator start time not found -> create and save")
+            util.logger.info(f"Store operator start time not found -> create and save")
             utils.save_operator_start_time(data_path, self.operator_start_time)
-        print(f"Operator start time: {self.operator_start_time}")
+        util.logger.info(f"Operator start time: {self.operator_start_time}")
 
     def input_is_real_time(self, timestamp):
         return timestamp >= self.operator_start_time
@@ -156,7 +157,7 @@ class Operator(OperatorBase):
     def run(self, data, selector='energy_func'):
         # These operators will also run when historic data is consumed and the init phase is completed based on historic timestamps 
         timestamp = utils.todatetime(data['time']).tz_localize(None)
-        print(f'{LOG_PREFIX}: Input time: {str(timestamp)} Value: {str(data["value"])}')
+        util.logger.debug(f'{LOG_PREFIX}: Input time: {str(timestamp)} Value: {str(data["value"])}')
 
         # "Reset" init phase message first time its over
         self.reset_init_message(timestamp)
@@ -168,7 +169,7 @@ class Operator(OperatorBase):
                 sample_is_anomalous, result = detector.check(data)
 
                 if sample_is_anomalous:
-                    print(f"{LOG_PREFIX}: Anomaly occured: Detector={result['type']} Value={result['value']}")
+                    util.logger.info(f"{LOG_PREFIX}: Anomaly occured: Detector={result['type']} Value={result['value']}")
                     if self.input_is_real_time(timestamp):
                         return result 
 
@@ -179,7 +180,7 @@ class Operator(OperatorBase):
         # Check init phase
         # Use input timestamp and first input for historic and real time data support 
         if self.operator_is_in_init_phase(timestamp):
-            print(f"{LOG_PREFIX}: Still in initialisation phase! {timestamp} - {self.operator_start_time} < {self.init_phase_duration}")
+            util.logger.debug(f"{LOG_PREFIX}: Still in initialisation phase! {timestamp} - {self.operator_start_time} < {self.init_phase_duration}")
             td_until_start = self.init_phase_duration - (timestamp - self.operator_start_time)
             minutes_until_start = int(td_until_start.total_seconds()/60)
             return self.generate_init_message(minutes_until_start)

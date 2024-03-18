@@ -2,9 +2,8 @@ import threading
 import datetime
 import time 
 from algo import utils
-import json 
 
-import pandas as pd 
+import operator_lib.util as util
 
 # TODO
 # nur sinnvoll bei sensoren die regelmaesig senden
@@ -29,23 +28,23 @@ class FrequencyDetector(threading.Thread, utils.StdPointOutlierDetector):
 
     def run(self):
         # Frequency Detection shall only run in real time data, not when historic data comes in 
-        print(f"{LOG_PREFIX}: Frequency Detector started -> Loop is stopped: {self.__stop}")
+        util.logger.debug(f"{LOG_PREFIX}: Frequency Detector started -> Loop is stopped: {self.__stop}")
 
         while not self.__stop:
             # TODO remove both checks
             if not self.last_received_ts:
-                print(f"{LOG_PREFIX}: Pause check until first real time input")
+                util.logger.debug(f"{LOG_PREFIX}: Pause check until first real time input")
                 time.sleep(5)
                 continue
 
             if self.last_received_ts < self.operator_start_time:
-                print(f"{LOG_PREFIX}: Last value was historic -> wait until real time data comes in")
+                util.logger.debug(f"{LOG_PREFIX}: Last value was historic -> wait until real time data comes in")
                 time.sleep(5)
                 continue
 
             now = datetime.datetime.now()
             waiting_time = self.calculate_time_diff(now, self.last_received_ts)
-            print(f"{LOG_PREFIX}: Time since last input {waiting_time}")
+            util.logger.debug(f"{LOG_PREFIX}: Time since last input {waiting_time}")
             anomaly_occured = False
             if self.point_is_anomalous_high(waiting_time):
                 sub_type = "high"
@@ -55,7 +54,7 @@ class FrequencyDetector(threading.Thread, utils.StdPointOutlierDetector):
                 anomaly_occured = True
 
             if anomaly_occured:
-                print(f"{LOG_PREFIX}: Anomaly occured: Type=time Sub-Type={sub_type} Value={waiting_time} Mean={self.current_mean} Std={self.current_stddev}")
+                util.logger.info(f"{LOG_PREFIX}: Anomaly occured: Type=time Sub-Type={sub_type} Value={waiting_time} Mean={self.current_mean} Std={self.current_stddev}")
                 self.kafka_produce_func.produce({
                     "type": "time",
                     "sub_type": sub_type,
@@ -78,12 +77,12 @@ class FrequencyDetector(threading.Thread, utils.StdPointOutlierDetector):
 
     def register_input(self, input_timestamp): 
         if not self.last_received_ts:
-            print(f'{LOG_PREFIX}: First input arrived')
+            util.logger.debug(f'{LOG_PREFIX}: First input arrived')
             self.last_received_ts = input_timestamp
             return 
 
         waiting_time = self.calculate_time_diff(input_timestamp, self.last_received_ts)
-        print(f"{LOG_PREFIX}: Input received at: {input_timestamp} -> Waiting time of current input: {waiting_time} -> Mean={self.current_mean} Std={self.current_stddev}")
+        util.logger.debug(f"{LOG_PREFIX}: Input received at: {input_timestamp} -> Waiting time of current input: {waiting_time} -> Mean={self.current_mean} Std={self.current_stddev}")
         self.update(waiting_time)
         self.last_received_ts = input_timestamp
 

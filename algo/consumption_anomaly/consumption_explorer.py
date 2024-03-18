@@ -3,6 +3,7 @@ from algo import utils
 from . import consumption_utils
 import pickle
 import os
+import operator_lib.util as util
 
 __all__ = ("Consumption_Explorer",)
 
@@ -65,7 +66,7 @@ class Consumption_Explorer:
     def run(self, data):
         timestamp = utils.todatetime(data['time']).tz_localize(None)
         new_value = float(data['value'])
-        print('value: '+str(new_value)+'  '+'time: '+str(timestamp))
+        util.logger.debug('value: '+str(new_value)+'  '+'time: '+str(timestamp))
         self.data_history = consumption_utils.update_data_history(timestamp, new_value, self.data_history, self.history_time_span)
         if self.first_data_time == None:
             self.first_data_time = timestamp
@@ -83,7 +84,7 @@ class Consumption_Explorer:
         if timestamp - self.first_data_time >= pd.Timedelta(2,'days'):
             anomaly_occured = consumption_utils.check_outlier(self.data_history, self.linear_model)
             if anomaly_occured:
-                print('An anomaly in the total consumption curve just occured! \n\n\n\n')             
+                util.logger.info('An anomaly in the total consumption curve just occured! \n\n\n\n')             
                 return True, {
                     "type": "total_consumption_anomaly",
                     "sub_type": "",
