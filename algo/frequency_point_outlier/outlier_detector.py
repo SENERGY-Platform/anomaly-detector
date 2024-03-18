@@ -69,7 +69,8 @@ class FrequencyDetector(threading.Thread, utils.StdPointOutlierDetector):
         self.__stop = True
 
     def start_loop(self):
-        print(f"{LOG_PREFIX}: Loop started!")
+        if self.__stop:
+            print(f"{LOG_PREFIX}: Loop started!")
         self.__stop = False 
 
     def calculate_time_diff(self, ts1, ts2):
