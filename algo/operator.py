@@ -39,7 +39,6 @@ class CustomConfig(Config):
     device_id: str = None
     data_path = "/opt/data"
     device_name: str = None
-    logger_level = "info"
     check_data_anomalies: bool = False
     check_data_extreme_outlier: bool = True
     check_data_schema: bool = True
