@@ -23,7 +23,7 @@ class Point_Explorer(utils.StdPointOutlierDetector):
             anomaly_occured = True
                 
         if anomaly_occured:
-            util.logger.info(f'{LOG_PREFIX}: An extreme point outlier just occured! \n\n\n\n')
+            util.logger.info(f'{LOG_PREFIX}: An extreme point outlier just occured!')
             return True, {
                     "type": "extreme_value",
                     "sub_type": sub_type,

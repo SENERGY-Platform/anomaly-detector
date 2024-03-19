@@ -62,7 +62,6 @@ class Curve_Explorer:
                 return False, ''
             elif timestamp-self.first_data_time >= pd.Timedelta(1, 'days'):
                 self.device_type = curve_utils.get_device_type(self.data_list)
-                util.logger.debug(self.device_type)
         self.data_list.append([timestamp, float(data['value'])])
         use_cuda = torch.cuda.is_available()
         self.last_training_time, self.model, self.training_performance = curve_utils.batch_train(self.data_list, self.first_data_time, self.last_training_time, self.device_type, self.model, use_cuda, self.training_performance)
