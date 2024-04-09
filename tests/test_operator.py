@@ -14,7 +14,7 @@
    limitations under the License.
 """
 
-from ._util import *
+from tests._util import *
 import algo
 import unittest
 

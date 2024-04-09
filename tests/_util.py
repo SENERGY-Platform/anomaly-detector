@@ -14,7 +14,7 @@
    limitations under the License.
 """
 
-import util
+from algo import util
 import mf_lib
 import logging
 import json
