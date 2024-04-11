@@ -17,32 +17,29 @@
 __all__ = ("Operator", )
 
 import os
+import json 
 
-from algo import curve_anomaly
-from algo import point_outlier
-from algo import consumption_anomaly
 from algo import utils
-from algo.frequency_point_outlier import FrequencyDetector
 import pandas as pd
 import datetime
-
 import operator_lib.util as util
 from operator_lib.util import Config
 from operator_lib.util import OperatorBase
 
+from algo.detector import AnomalyDetector
+
 LOG_PREFIX = "MAIN"
 
 def parse_bool(value):
-    return (value == "True" or value == "true" or value == "1")
+    return (value == "True" or value == "true" or value == "1" or value)
 
 class CustomConfig(Config):
-    device_id: str = None
     data_path = "/opt/data"
-    device_name: str = None
     check_data_anomalies: bool = False
     check_data_extreme_outlier: bool = True
     check_data_schema: bool = True
     check_receive_time_outlier: bool = True
+    check_consumption: bool = True
     init_phase_length: float = 2
     init_phase_level: str = "d"
 
@@ -63,41 +60,31 @@ class Operator(OperatorBase):
         if not os.path.exists(self.config.data_path):
             os.mkdir(self.config.data_path)
 
-        self.device_id = self.config.device_id
-
-        self.device_name = self.config.device_name
-
-        self.active = []
-
         self.init_phase_duration = pd.Timedelta(self.config.init_phase_length, self.config.init_phase_level)
         self.setup_operator_start(self.config.data_path)
         self.init_phase_resetted = utils.load_init_phase_was_resetted(self.config.data_path)
-
-        if self.config.check_data_schema:
-            util.logger.info(f"{LOG_PREFIX}: Data Schema Detector is active")
-
-        #if self.config.check_data_anomalies:
-            #print(f"{LOG_PREFIX}: Curve Explorer is active!")
-            #self.Curve_Explorer = curve_anomaly.Curve_Explorer(self.config.data_path)
-            #self.active.append(self.Curve_Explorer)
-        
-        if self.config.check_data_extreme_outlier:
-            util.logger.info(f"{LOG_PREFIX}: Point Explorer is active!")
-            self.Point_Explorer = point_outlier.Point_Explorer(os.path.join(self.config.data_path, "point_explorer"))
-            self.active.append(self.Point_Explorer)
-
-        self.frequency_monitor = None
-        if self.config.check_receive_time_outlier:
-            util.logger.info(f"{LOG_PREFIX}: Frequency Monitor is active!")
-            self.frequency_monitor = FrequencyDetector(
-                kafka_produce_func=self.produce,
-                data_path=os.path.join(self.config.data_path, "frequency_monitor")
-            )
-            self.frequency_monitor.start()
-
-        self.Consumption_Explorer = consumption_anomaly.Consumption_Explorer(os.path.join(self.config.data_path, "consumption_explorer"))
-
         self.send_init_message()
+
+        self.setup_device_detectors()
+
+    def setup_device_detectors(self):
+        self.device_detectors = {} 
+        dep_config = util.DeploymentConfig()
+        config_json = json.loads(dep_config.config)
+        opr_config = util.OperatorConfig(config_json)
+        for input_topic in opr_config.inputTopics:
+            device_id = input_topic.filterValue
+            util.logger.info(f"Initialize Detector for Device: {device_id}")
+            self.device_detectors[device_id] = AnomalyDetector(
+                device_id,
+                self.config.check_receive_time_outlier,
+                self.config.check_data_schema,
+                self.config.check_data_anomalies,
+                self.config.check_data_extreme_outlier,
+                self.config.check_consumption,
+                self.config.data_path,
+                self.produce
+            )
 
     def setup_operator_start(self, data_path):
         self.operator_start_time = utils.load_operator_start_time(data_path)
@@ -112,17 +99,6 @@ class Operator(OperatorBase):
 
     def operator_is_in_init_phase(self, timestamp):
         return timestamp-self.operator_start_time < self.init_phase_duration
-
-    def handle_frequency_monitor(self, timestamp):
-        # Historic data comes not with pauses in between
-        if not self.frequency_monitor:
-            return 
-        
-        if self.input_is_real_time(timestamp):
-            self.frequency_monitor.register_input(timestamp)
-
-            if not self.operator_is_in_init_phase(timestamp):
-                self.frequency_monitor.start_loop()
 
     def generate_init_message(self, minutes_until_start=None):
         if not minutes_until_start:
@@ -139,10 +115,7 @@ class Operator(OperatorBase):
     def send_init_message(self):
         self.produce(self.generate_init_message())
 
-    def reset_init_message(self, timestamp):
-        if self.operator_is_in_init_phase(timestamp) or not self.input_is_real_time(timestamp) and self.init_phase_resetted:
-            return 
-
+    def reset_init_phase(self):
         self.produce({
                 "type": "",
                 "sub_type": "",
@@ -153,49 +126,47 @@ class Operator(OperatorBase):
         self.init_phase_resetted = True
         utils.save_init_phase_was_resetted(self.config.data_path, True)
 
-    def run(self, data, selector='energy_func', topic=''):
-        # These operators will also run when historic data is consumed and the init phase is completed based on historic timestamps 
-        timestamp = utils.todatetime(data['time']).tz_localize(None)
-        util.logger.debug(f'{LOG_PREFIX}: Input time: {str(timestamp)} Value: {str(data["value"])}')
-
-        # "Reset" init phase message first time its over
-        self.reset_init_message(timestamp)
-
-        self.handle_frequency_monitor(timestamp)
-
-        if not self.operator_is_in_init_phase(timestamp) and self.input_is_real_time(timestamp):
-            for detector in self.active:
-                sample_is_anomalous, result = detector.check(data)
-
-                if sample_is_anomalous:
-                    util.logger.info(f"{LOG_PREFIX}: Anomaly occured: Detector={result['type']} Value={result['value']}")
-                    if self.input_is_real_time(timestamp):
-                        return result 
-
-        # Update detectors
-        for detector in self.active:
-            detector.update_with_new_value(data["value"])
-
-        # Check init phase
+    def handle_init_phase(self, timestamp):
         # Use input timestamp and first input for historic and real time data support 
         if self.operator_is_in_init_phase(timestamp):
             util.logger.debug(f"{LOG_PREFIX}: Still in initialisation phase! {timestamp} - {self.operator_start_time} < {self.init_phase_duration}")
             td_until_start = self.init_phase_duration - (timestamp - self.operator_start_time)
             minutes_until_start = int(td_until_start.total_seconds()/60)
             return self.generate_init_message(minutes_until_start)
-            
 
-        self.Consumption_Explorer.run(data)
+        if not self.input_is_real_time(timestamp) or self.init_phase_resetted:
+            return None 
+
+        util.logger.debug(f"{LOG_PREFIX}: Reset init phase message")
+        self.reset_init_phase()
+
+    def run(self, data, selector='energy_func', device_id=''):
+        # These operators will also run when historic data is consumed and the init phase is completed based on historic timestamps 
+        timestamp = utils.todatetime(data['time']).tz_localize(None)
+        value = float(data['value'])
+        util.logger.debug(f'{LOG_PREFIX}: Device: {device_id} Input time: {str(timestamp)} Value: {str(data["value"])}')
+
+        device_detector = self.device_detectors[device_id]
+        if not self.operator_is_in_init_phase(timestamp) and self.input_is_real_time(timestamp):
+            util.logger.debug(f"{LOG_PREFIX}: Check input for anomalies")
+            anomalies_found = device_detector.check_input(value, timestamp)
+            util.logger.debug(f"{LOG_PREFIX}: Found Anomalies: {anomalies_found}")
+            if anomalies_found:
+                return anomalies_found
+
+        util.logger.debug(f"{LOG_PREFIX}: Register new input at detectors")
+        device_detector.update(value, timestamp, self.input_is_real_time(timestamp))
+
+        if not self.operator_is_in_init_phase(timestamp):
+            util.logger.debug(f"{LOG_PREFIX}: Start Frequency Detector Loop")
+            device_detector.start_freq_loop()
+
+        init_msg = self.handle_init_phase(timestamp)
+        if init_msg:
+            return init_msg
 
     def stop(self):
-        super().stop()
-
-        if self.config.check_receive_time_outlier:
-            self.frequency_monitor.stop()
-            self.frequency_monitor.save()
-
-        if self.config.check_data_anomalies:
-            self.Curve_Explorer.save()
-
-        if self.config.check_data_extreme_outlier:
-            self.Point_Explorer.save()
+        for device, device_detector in self.device_detectors.items():
+            util.logger.info(f"Stop Anomaly Detector for device: {device}")
+            device_detector.stop()
+            util.logger.info("Anomaly Detector stopped")

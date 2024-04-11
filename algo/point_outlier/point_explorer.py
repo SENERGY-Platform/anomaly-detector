@@ -10,8 +10,8 @@ class Point_Explorer(utils.StdPointOutlierDetector):
     def __init__(self, data_path):
         super().__init__(data_path)
 
-    def check(self, data):
-        new_value = float(data['value'])
+    def check(self, value, timestamp):
+        new_value = float(value)
             
         anomaly_occured = False
         if self.point_is_anomalous_high(new_value):

@@ -31,6 +31,7 @@ class FrequencyDetector(threading.Thread, utils.StdPointOutlierDetector):
         util.logger.debug(f"{LOG_PREFIX}: Frequency Detector started -> Loop is stopped: {self.__stop}")
 
         while not self.__stop:
+            util.logger.debug(1)
             # TODO remove both checks
             if not self.last_received_ts:
                 util.logger.debug(f"{LOG_PREFIX}: Pause check until first real time input")
@@ -65,6 +66,7 @@ class FrequencyDetector(threading.Thread, utils.StdPointOutlierDetector):
             time.sleep(5)
 
     def stop(self):
+        util.logger.info("Stop Frequency Detector Loop")
         self.__stop = True
 
     def start_loop(self):

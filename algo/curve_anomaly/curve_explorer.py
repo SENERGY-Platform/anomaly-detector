@@ -49,20 +49,19 @@ class Curve_Explorer:
 
 
 
-    def check(self, data):
-        timestamp = utils.todatetime(data['time']).tz_localize(None)
+    def check(self, value, timestamp):
         if self.first_data_time == None:
             self.first_data_time = timestamp
             self.last_training_time = self.first_data_time
-            self.data_list.append([timestamp, float(data['value'])])
+            self.data_list.append([timestamp, value])
             return False, ''
         if self.device_type == None:
             if timestamp-self.first_data_time < pd.Timedelta(1, 'days'):
-                self.data_list.append([timestamp, float(data['value'])])
+                self.data_list.append([timestamp, value])
                 return False, ''
             elif timestamp-self.first_data_time >= pd.Timedelta(1, 'days'):
                 self.device_type = curve_utils.get_device_type(self.data_list)
-        self.data_list.append([timestamp, float(data['value'])])
+        self.data_list.append([timestamp, value])
         use_cuda = torch.cuda.is_available()
         self.last_training_time, self.model, self.training_performance = curve_utils.batch_train(self.data_list, self.first_data_time, self.last_training_time, self.device_type, self.model, use_cuda, self.training_performance)
         test_result, self.loads, self.anomalies = curve_utils.test(self.data_list, self.first_data_time, self.last_training_time, self.device_type, self.model, use_cuda, self.anomalies, self.loads)
@@ -96,3 +95,6 @@ class Curve_Explorer:
     def save(self):
         utils.save_data(self.filename_dict, self.initial_time, self.first_data_time, self.last_training_time, self.data_list,
                               self.model, self.training_performance, self.anomalies, self.device_type, self.loads)
+
+    def stop(self):
+        self.save()

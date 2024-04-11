@@ -4,6 +4,8 @@ import pickle
 import torch
 import os
 
+import operator_lib.util as util
+
 __all__ = ("todatetime", "save_data", "calculate_std", "calculate_mean")
 
 FILE_NAME_OPERATOR_START_TIME = "operator_start_time.pickle"
@@ -53,6 +55,10 @@ class StdPointOutlierDetector():
             pickle.dump(self.num_datepoints, f)
         with open(first_data_time_path, 'wb') as f:
             pickle.dump(self.first_data_time, f)
+
+    def stop(self):
+        util.logger.info("Stop Std Outlier Detector")
+        self.save()
 
     def load_data(self, current_stddev, current_mean, num_datepoints, first_data_time):
         current_stddev_path = self.filename_dict["current_stddev"]
