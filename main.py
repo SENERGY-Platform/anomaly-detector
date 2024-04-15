@@ -22,13 +22,16 @@ from algo.operator import Operator
 
 from operator_lib.operator_lib import OperatorLib
 
-def handle_schema_error(error, message, produce_func):
+def handle_schema_error(error, message, produce_func, device_id):
     # catches cases when middle keys are missing like ENERGY, but not when last key like power is missing 
     msg_str = json.dumps(message)
     produce_func({
         "type": "schema",
         "sub_type": "",
         "value": msg_str, 
+        "threshold": "",
+        "mean": 0,
+        "device_id": device_id
     })
     
 
