@@ -57,6 +57,7 @@ class AnomalyDetector():
 
             if sample_is_anomalous:
                 result['device_id'] = self.device_id
+                result['initial_phase'] = ''
                 util.logger.info(f"{LOG_PREFIX}: Anomaly occured: {result}")
                 anomaly_results.append(result) 
         return anomaly_results

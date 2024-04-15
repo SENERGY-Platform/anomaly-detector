@@ -115,8 +115,9 @@ class Operator(OperatorBase):
         return {
                 "type": "",
                 "sub_type": "",
-                "unit": "",
                 "value": "",
+                "threshold": 0,
+                "mean": 0,
                 "initial_phase": f"Die Anwendung befindet sich noch für ca. {minutes_until_start} Minuten in der Initialisierungsphase"
             }
 
@@ -127,8 +128,9 @@ class Operator(OperatorBase):
         self.produce({
                 "type": "",
                 "sub_type": "",
-                "unit": "",
                 "value": "",
+                "threshold": 0,
+                "mean": 0,
                 "initial_phase": ""
         })
         self.init_phase_resetted = True
