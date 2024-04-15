@@ -63,8 +63,8 @@ class FrequencyDetector(threading.Thread, utils.StdPointOutlierDetector):
                     "type": "time",
                     "sub_type": sub_type,
                     "value": waiting_time,
-                    "threshold": threshold,
-                    "mean": self.current_mean
+                    "threshold": round(threshold, 2),
+                    "mean": round(self.current_mean, 2)
                 })
             
             time.sleep(5)

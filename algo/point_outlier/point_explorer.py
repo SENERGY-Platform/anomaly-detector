@@ -31,8 +31,8 @@ class Point_Explorer(utils.StdPointOutlierDetector):
                     "type": "extreme_value",
                     "sub_type": sub_type,
                     "value": new_value,
-                    "threshold": threshold,
-                    "mean": self.current_mean
+                    "threshold": round(threshold, 2),
+                    "mean": round(self.current_mean, 2)
             }
         
         return False, {}
