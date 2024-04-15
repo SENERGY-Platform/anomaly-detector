@@ -51,6 +51,11 @@ class CustomConfig(Config):
         self.check_receive_time_outlier = parse_bool(self.check_receive_time_outlier)
         if self.init_phase_length != '':
             self.init_phase_length = float(self.init_phase_length)
+        else:
+            self.init_phase_length = 2
+        
+        if self.init_phase_level == '':
+            self.init_phase_level = 'd'
         
 class Operator(OperatorBase):
     configType = CustomConfig
