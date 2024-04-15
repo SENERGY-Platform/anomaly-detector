@@ -78,19 +78,21 @@ class Operator(OperatorBase):
         dep_config = util.DeploymentConfig()
         config_json = json.loads(dep_config.config)
         opr_config = util.OperatorConfig(config_json)
+        # Input can come from one/multiple service and one/multiple devices 
         for input_topic in opr_config.inputTopics:
-            device_id = input_topic.filterValue
-            util.logger.info(f"Initialize Detector for Device: {device_id}")
-            self.device_detectors[device_id] = AnomalyDetector(
-                device_id,
-                self.config.check_receive_time_outlier,
-                self.config.check_data_schema,
-                self.config.check_data_anomalies,
-                self.config.check_data_extreme_outlier,
-                self.config.check_consumption,
-                self.config.data_path,
-                self.produce
-            )
+            device_ids = input_topic.filterValue
+            for device_id in device_ids.split(','):
+                util.logger.info(f"Initialize Detector for Device: {device_id}")
+                self.device_detectors[device_id] = AnomalyDetector(
+                    device_id,
+                    self.config.check_receive_time_outlier,
+                    self.config.check_data_schema,
+                    self.config.check_data_anomalies,
+                    self.config.check_data_extreme_outlier,
+                    self.config.check_consumption,
+                    self.config.data_path,
+                    self.produce
+                )
 
     def setup_operator_start(self, data_path):
         self.operator_start_time = utils.load_operator_start_time(data_path)
