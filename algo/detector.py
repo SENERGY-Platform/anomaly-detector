@@ -23,6 +23,7 @@ class AnomalyDetector():
         produce_func
     ):
         self.active_detectors = []
+        self.device_id = device_id
         
         if check_data_schema:
             util.logger.info(f"{LOG_PREFIX}: Data Schema Detector is active")
