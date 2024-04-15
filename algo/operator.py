@@ -122,21 +122,9 @@ class Operator(OperatorBase):
             }
 
     def send_init_message(self):
-        self.produce(self.generate_init_message())
+        self.produce(self.generate_init_message())        
 
-    def reset_init_phase(self):
-        self.produce({
-                "type": "",
-                "sub_type": "",
-                "value": "",
-                "threshold": 0,
-                "mean": 0,
-                "initial_phase": ""
-        })
-        self.init_phase_resetted = True
-        utils.save_init_phase_was_resetted(self.config.data_path, True)
-
-    def handle_init_phase(self, timestamp):
+    def send_init_phase(self, timestamp):
         # Use input timestamp and first input for historic and real time data support 
         if self.operator_is_in_init_phase(timestamp):
             util.logger.debug(f"{LOG_PREFIX}: Still in initialisation phase! {timestamp} - {self.operator_start_time} < {self.init_phase_duration}")
@@ -144,20 +132,39 @@ class Operator(OperatorBase):
             minutes_until_start = int(td_until_start.total_seconds()/60)
             return self.generate_init_message(minutes_until_start)
 
-        if not self.input_is_real_time(timestamp) or self.init_phase_resetted:
+    def handle_init_reset(self):
+        if self.init_phase_resetted:
             return None 
 
         util.logger.debug(f"{LOG_PREFIX}: Reset init phase message")
-        self.reset_init_phase()
-
+        self.init_phase_resetted = True
+        utils.save_init_phase_was_resetted(self.config.data_path, True)
+        return {
+                "type": "",
+                "sub_type": "",
+                "value": "",
+                "threshold": 0,
+                "mean": 0,
+                "initial_phase": ""
+        }
+        
     def run(self, data, selector='energy_func', device_id=''):
         # These operators will also run when historic data is consumed and the init phase is completed based on historic timestamps 
         timestamp = utils.todatetime(data['time']).tz_localize(None)
+        
+        if self.operator_is_in_init_phase(timestamp):
+            return self.send_init_phase(timestamp)
+        
+        reset_msg = self.handle_init_reset()
+        if reset_msg:
+            return reset_msg
+
         value = float(data['value'])
         util.logger.debug(f'{LOG_PREFIX}: Device: {device_id} Input time: {str(timestamp)} Value: {str(data["value"])}')
 
         device_detector = self.device_detectors[device_id]
-        if not self.operator_is_in_init_phase(timestamp) and self.input_is_real_time(timestamp):
+        if self.input_is_real_time(timestamp):
+            device_detector.start_freq_loop()
             util.logger.debug(f"{LOG_PREFIX}: Check input for anomalies")
             anomalies_found = device_detector.check_input(value, timestamp)
             util.logger.debug(f"{LOG_PREFIX}: Found Anomalies: {anomalies_found}")
@@ -167,13 +174,8 @@ class Operator(OperatorBase):
         util.logger.debug(f"{LOG_PREFIX}: Register new input at detectors")
         device_detector.update(value, timestamp, self.input_is_real_time(timestamp))
 
-        if not self.operator_is_in_init_phase(timestamp):
-            util.logger.debug(f"{LOG_PREFIX}: Start Frequency Detector Loop")
-            device_detector.start_freq_loop()
+ 
 
-        init_msg = self.handle_init_phase(timestamp)
-        if init_msg:
-            return init_msg
 
     def stop(self):
         for device, device_detector in self.device_detectors.items():

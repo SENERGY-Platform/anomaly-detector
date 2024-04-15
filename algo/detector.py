@@ -47,6 +47,8 @@ class AnomalyDetector():
             )
             self.frequency_monitor.start()
 
+        self.frequency_monitor_loop_is_running = False
+
         if check_consumption:
             consumption_explorer = consumption_anomaly.Consumption_Explorer(os.path.join(data_path, "consumption_explorer"))
 
@@ -75,7 +77,8 @@ class AnomalyDetector():
     def start_freq_loop(self):
         if not self.frequency_monitor:
             return 
-
+        if self.frequency_monitor_loop_is_running:
+            return
         self.frequency_monitor.start_loop()
 
     def stop(self):
