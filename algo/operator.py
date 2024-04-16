@@ -152,7 +152,8 @@ class Operator(OperatorBase):
         # These operators will also run when historic data is consumed and the init phase is completed based on historic timestamps 
         timestamp = utils.todatetime(data['time']).tz_localize(None)
         
-        if self.operator_is_in_init_phase(timestamp):
+        # Check for already resetted is necessary as it is possible that a weid input comes in and triggers the init
+        if self.operator_is_in_init_phase(timestamp) and not self.init_phase_resetted:
             return self.send_init_phase(timestamp)
         
         reset_msg = self.handle_init_reset()
