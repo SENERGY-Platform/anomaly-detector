@@ -164,17 +164,19 @@ class Operator(OperatorBase):
         util.logger.debug(f'{LOG_PREFIX}: Device: {device_id} Input time: {str(timestamp)} Value: {str(data["value"])}')
 
         device_detector = self.device_detectors[device_id]
+        anomalies_found = None
         if self.input_is_real_time(timestamp):
             device_detector.start_freq_loop()
             util.logger.debug(f"{LOG_PREFIX}: Check input for anomalies")
             anomalies_found = device_detector.check_input(value, timestamp)
             util.logger.debug(f"{LOG_PREFIX}: Found Anomalies: {anomalies_found}")
-            if anomalies_found:
-                return anomalies_found
+            
 
         util.logger.debug(f"{LOG_PREFIX}: Register new input at detectors")
         device_detector.update(value, timestamp, self.input_is_real_time(timestamp))
-
+        
+        if anomalies_found:
+            return anomalies_found
  
 
 
