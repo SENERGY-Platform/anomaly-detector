@@ -3,6 +3,7 @@ import numpy as np
 import pickle
 import torch
 import os
+from pyarrow.lib import ArrowInvalid
 
 import operator_lib.util as util
 
@@ -159,12 +160,15 @@ def load_data(filename_dict, data_list, initial_time, first_data_time, last_trai
 
     if os.path.exists(data_path):
         data_list = []
-        df = pd.read_parquet(data_path)
-        df.index = pd.to_datetime(df.index)
-        data_series = pd.Series(data=df['power_values'], index=df.index)
-        data_series = df[~df.index.duplicated(keep='first')]
-        for i in range(len(data_series.index)):
-            data_list.append([data_series.index[i], float(data_series.iloc[i])])
+        try:
+            df = pd.read_parquet(data_path)
+            df.index = pd.to_datetime(df.index)
+            data_series = pd.Series(data=df['power_values'], index=df.index)
+            data_series = df[~df.index.duplicated(keep='first')]
+            for i in range(len(data_series.index)):
+                data_list.append([data_series.index[i], float(data_series.iloc[i])])
+        except ArrowInvalid:
+            print("Data buffer could not be loaded! This might be caused by not having any data in the buffer yet.")
 
     if os.path.exists(initial_time_path):
        with open(initial_time_path, 'rb') as f:
