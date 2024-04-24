@@ -77,7 +77,7 @@ class Operator(OperatorBase):
         if device_detector:
             return device_detector
         
-        self.device_detectors[input_ids] = AnomalyDetector(
+        device_detector = AnomalyDetector(
             input_ids,
             self.config.check_receive_time_outlier,
             self.config.check_data_schema,
@@ -87,6 +87,8 @@ class Operator(OperatorBase):
             self.config.data_path,
             self.produce
         )
+        self.device_detectors[input_ids] = device_detector
+        return device_detector
 
     def setup_operator_start(self, data_path):
         self.operator_start_time = utils.load_operator_start_time(data_path)

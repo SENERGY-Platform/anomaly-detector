@@ -85,18 +85,18 @@ class StdPointOutlierDetector():
     def point_is_anomalous_high(self, point):
         if self.num_datepoints < 2:
             return False
-        return point > self.current_mean + 3*self.current_stddev
+        return point > self.current_mean + 5*self.current_stddev
 
     def point_is_anomalous_low(self, point):
         if self.num_datepoints < 2:
             return False
-        return point < self.current_mean - 3*self.current_stddev
+        return point < self.current_mean - 5*self.current_stddev
 
     def get_upper_threshold(self):
-        return self.current_mean + 3*self.current_stddev
+        return self.current_mean + 5*self.current_stddev
 
     def get_lower_threshold(self):
-        return self.current_mean + 3*self.current_stddev
+        return self.current_mean + 5*self.current_stddev
 
     def update(self, point):
         self.current_stddev = self.calculate_std(point, self.current_stddev, self.current_mean, self.num_datepoints)
