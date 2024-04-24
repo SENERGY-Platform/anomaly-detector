@@ -73,7 +73,7 @@ class Operator(OperatorBase):
         self.device_detectors = {} 
 
     def get_device_detectors(self, input_ids):
-        device_detector = self.device_detectors[input_ids]
+        device_detector = self.device_detectors.get(input_ids)
         if device_detector:
             return device_detector
         
