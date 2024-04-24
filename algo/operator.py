@@ -70,29 +70,23 @@ class Operator(OperatorBase):
         self.setup_operator_start(self.config.data_path)
         self.init_phase_resetted = utils.load_init_phase_was_resetted(self.config.data_path)
         self.send_init_message()
-
-        self.setup_device_detectors()
-
-    def setup_device_detectors(self):
         self.device_detectors = {} 
-        dep_config = util.DeploymentConfig()
-        config_json = json.loads(dep_config.config)
-        opr_config = util.OperatorConfig(config_json)
-        # Input can come from one/multiple service and one/multiple devices 
-        for input_topic in opr_config.inputTopics:
-            device_ids = input_topic.filterValue
-            for device_id in device_ids.split(','):
-                util.logger.info(f"Initialize Detector for Device: {device_id}")
-                self.device_detectors[device_id] = AnomalyDetector(
-                    device_id,
-                    self.config.check_receive_time_outlier,
-                    self.config.check_data_schema,
-                    self.config.check_data_anomalies,
-                    self.config.check_data_extreme_outlier,
-                    self.config.check_consumption,
-                    self.config.data_path,
-                    self.produce
-                )
+
+    def get_device_detectors(self, input_ids):
+        device_detector = self.device_detectors[input_ids]
+        if device_detector:
+            return device_detector
+        
+        self.device_detectors[input_ids] = AnomalyDetector(
+            input_ids,
+            self.config.check_receive_time_outlier,
+            self.config.check_data_schema,
+            self.config.check_data_anomalies,
+            self.config.check_data_extreme_outlier,
+            self.config.check_consumption,
+            self.config.data_path,
+            self.produce
+        )
 
     def setup_operator_start(self, data_path):
         self.operator_start_time = utils.load_operator_start_time(data_path)
@@ -149,6 +143,10 @@ class Operator(OperatorBase):
         }
         
     def run(self, data, selector='energy_func', device_id=''):
+        original_input_ids = data.get('original_input_ids')
+
+        input_id = device_id or original_input_ids
+
         # These operators will also run when historic data is consumed and the init phase is completed based on historic timestamps 
         timestamp = utils.todatetime(data['time']).tz_localize(None)
         
@@ -163,7 +161,7 @@ class Operator(OperatorBase):
         value = float(data['value'])
         util.logger.debug(f'{LOG_PREFIX}: Device: {device_id} Input time: {str(timestamp)} Value: {str(data["value"])}')
 
-        device_detector = self.device_detectors[device_id]
+        device_detector = self.get_device_detectors(input_id)
         anomalies_found = None
         if self.input_is_real_time(timestamp):
             device_detector.start_freq_loop()
