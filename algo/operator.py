@@ -112,7 +112,7 @@ class Operator(OperatorBase):
         # These operators will also run when historic data is consumed and the init phase is completed based on historic timestamps 
         timestamp = todatetime(data['time'])
         value = float(data['value'])
-        util.logger.debug(f'{LOG_PREFIX}: Device: {device_id} Input time: {str(timestamp)} Value: {str(data["value"])}')
+        util.logger.debug(f'{LOG_PREFIX}: Device: {device_id} Input time: {str(data["time"])} Value: {str(data["value"])}')
 
         value = {
             "type": False,
@@ -142,8 +142,6 @@ class Operator(OperatorBase):
         if anomalies_found:
             return anomalies_found
  
-
-
     def stop(self):
         for device, device_detector in self.device_detectors.items():
             util.logger.info(f"Stop Anomaly Detector for device: {device}")
