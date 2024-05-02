@@ -114,7 +114,7 @@ class Operator(OperatorBase):
         value = float(data['value'])
         util.logger.debug(f'{LOG_PREFIX}: Device: {device_id} Input time: {str(data["time"])} Value: {str(data["value"])}')
 
-        value = {
+        init_value = {
             "type": False,
             "sub_type": "",
             "value": "",
@@ -122,10 +122,10 @@ class Operator(OperatorBase):
             "mean": 0
         }
         if self.init_phase_handler.operator_is_in_init_phase(timestamp):
-            return self.init_phase_handler.generate_init_msg(timestamp, value)
+            return self.init_phase_handler.generate_init_msg(timestamp, init_value)
         
         if self.init_phase_handler.init_phase_needs_to_be_reset():
-            return self.init_phase_handler.reset_init_phase(value)
+            return self.init_phase_handler.reset_init_phase(init_value)
  
         device_detector = self.get_device_detectors(input_id)
         anomalies_found = None
