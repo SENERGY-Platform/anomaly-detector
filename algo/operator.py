@@ -66,7 +66,7 @@ class Operator(OperatorBase):
             os.mkdir(self.config.data_path)
 
         self.init_phase_duration = pd.Timedelta(self.config.init_phase_length, self.config.init_phase_level)
-        setup_operator_starttime(self.config.data_path)
+        self.operator_start_time = setup_operator_starttime(self.config.data_path)
 
         init_phase_duration = pd.Timedelta(self.config.init_phase_length, self.config.init_phase_level)        
         self.init_phase_handler = InitPhase(self.config.data_path, init_phase_duration)
