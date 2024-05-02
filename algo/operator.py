@@ -23,8 +23,7 @@ from algo import utils
 import pandas as pd
 import datetime
 import operator_lib.util as util
-from operator_lib.util import Config
-from operator_lib.util import OperatorBase
+from operator_lib.util import Config, OperatorBase, InitPhase, setup_operator_starttime, todatetime, timestamp_to_str
 
 from algo.detector import AnomalyDetector
 
@@ -67,9 +66,21 @@ class Operator(OperatorBase):
             os.mkdir(self.config.data_path)
 
         self.init_phase_duration = pd.Timedelta(self.config.init_phase_length, self.config.init_phase_level)
-        self.setup_operator_start(self.config.data_path)
-        self.init_phase_resetted = utils.load_init_phase_was_resetted(self.config.data_path)
-        self.send_init_message()
+        setup_operator_starttime(self.config.data_path)
+
+        init_phase_duration = pd.Timedelta(self.config.init_phase_length, self.config.init_phase_level)        
+        self.init_phase_handler = InitPhase(self.config.data_path, init_phase_duration)
+        value = {
+            "type": False,
+            "sub_type": "",
+            "value": "",
+            "threshold": 0,
+            "mean": 0
+        }
+        if self.init_phase_handler.first_init_msg_needs_to_send():
+            init_msg = self.init_phase_handler.generate_first_init_msg(value)
+            self.produce(init_msg)
+
         self.device_detectors = {} 
 
     def get_device_detectors(self, input_ids):
@@ -90,79 +101,32 @@ class Operator(OperatorBase):
         self.device_detectors[input_ids] = device_detector
         return device_detector
 
-    def setup_operator_start(self, data_path):
-        self.operator_start_time = utils.load_operator_start_time(data_path)
-        if not self.operator_start_time:
-            self.operator_start_time = datetime.datetime.now()
-            util.logger.info(f"Store operator start time not found -> create and save")
-            utils.save_operator_start_time(data_path, self.operator_start_time)
-        util.logger.info(f"Operator start time: {self.operator_start_time}")
-
     def input_is_real_time(self, timestamp):
         return timestamp >= self.operator_start_time
 
-    def operator_is_in_init_phase(self, timestamp):
-        return timestamp-self.operator_start_time < self.init_phase_duration
-
-    def generate_init_message(self, minutes_until_start=None):
-        if not minutes_until_start:
-            minutes_until_start = int(self.init_phase_duration.total_seconds()/60)
-
-        return {
-                "type": "",
-                "sub_type": "",
-                "value": "",
-                "threshold": 0,
-                "mean": 0,
-                "initial_phase": f"Die Anwendung befindet sich noch für ca. {minutes_until_start} Minuten in der Initialisierungsphase"
-            }
-
-    def send_init_message(self):
-        self.produce(self.generate_init_message())        
-
-    def send_init_phase(self, timestamp):
-        # Use input timestamp and first input for historic and real time data support 
-        if self.operator_is_in_init_phase(timestamp):
-            util.logger.debug(f"{LOG_PREFIX}: Still in initialisation phase! {timestamp} - {self.operator_start_time} < {self.init_phase_duration}")
-            td_until_start = self.init_phase_duration - (timestamp - self.operator_start_time)
-            minutes_until_start = int(td_until_start.total_seconds()/60)
-            return self.generate_init_message(minutes_until_start)
-
-    def handle_init_reset(self):
-        if self.init_phase_resetted:
-            return None 
-
-        util.logger.debug(f"{LOG_PREFIX}: Reset init phase message")
-        self.init_phase_resetted = True
-        utils.save_init_phase_was_resetted(self.config.data_path, True)
-        return {
-                "type": "",
-                "sub_type": "",
-                "value": "",
-                "threshold": 0,
-                "mean": 0,
-                "initial_phase": ""
-        }
-        
     def run(self, data, selector='energy_func', device_id=''):
         original_input_ids = data.get('original_input_ids')
 
         input_id = device_id or original_input_ids
 
         # These operators will also run when historic data is consumed and the init phase is completed based on historic timestamps 
-        timestamp = utils.todatetime(data['time']).tz_localize(None)
-        
-        # Check for already resetted is necessary as it is possible that a weid input comes in and triggers the init
-        if self.operator_is_in_init_phase(timestamp) and not self.init_phase_resetted:
-            return self.send_init_phase(timestamp)
-        
-        reset_msg = self.handle_init_reset()
-        if reset_msg:
-            return reset_msg
-
+        timestamp = todatetime(data['time'])
         value = float(data['value'])
         util.logger.debug(f'{LOG_PREFIX}: Device: {device_id} Input time: {str(timestamp)} Value: {str(data["value"])}')
 
+        value = {
+            "type": False,
+            "sub_type": "",
+            "value": "",
+            "threshold": 0,
+            "mean": 0
+        }
+        if self.init_phase_handler.operator_is_in_init_phase(timestamp):
+            return self.init_phase_handler.generate_init_msg(timestamp, value)
+        
+        if self.init_phase_handler.init_phase_needs_to_be_reset():
+            return self.init_phase_handler.reset_init_phase(value)
+ 
         device_detector = self.get_device_detectors(input_id)
         anomalies_found = None
         if self.input_is_real_time(timestamp):
