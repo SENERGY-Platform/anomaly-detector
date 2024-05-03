@@ -129,15 +129,16 @@ class Operator(OperatorBase):
  
         device_detector = self.get_device_detectors(input_id)
         anomalies_found = None
+        timestamp_without_tz = timestamp.tz_localize(None)
         if self.input_is_real_time(timestamp):
             device_detector.start_freq_loop()
             util.logger.debug(f"{LOG_PREFIX}: Check input for anomalies")
-            anomalies_found = device_detector.check_input(value, timestamp)
+            anomalies_found = device_detector.check_input(value, timestamp_without_tz)
             util.logger.debug(f"{LOG_PREFIX}: Found Anomalies: {anomalies_found}")
             
 
         util.logger.debug(f"{LOG_PREFIX}: Register new input at detectors")
-        device_detector.update(value, timestamp, self.input_is_real_time(timestamp))
+        device_detector.update(value, timestamp_without_tz, self.input_is_real_time(timestamp))
         
         if anomalies_found:
             return anomalies_found
