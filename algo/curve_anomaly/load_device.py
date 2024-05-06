@@ -5,7 +5,7 @@ from sklearn.ensemble import IsolationForest
 from . import preprocessing
 import operator_lib.util as util
 
-def extract_loads(time_series):
+def extract_loads(time_series, init_median):
     list_of_loads = []
     list_of_load_inds = []
     new_load = []
@@ -13,24 +13,28 @@ def extract_loads(time_series):
     active = False
     for i in range(len(time_series)):
         if active == True:
-            new_load.append(i)
-            if time_series[i] < 1.5: # If power values are below 1.5 for more than 10 time steps the load has stopped
-                end_check.append(i)
-            if len(end_check) > 10:
-                active = False
-                list_of_load_inds.append(new_load[:-10])
-                new_load = []
-                end_check = []
+            if time_series[i] < init_median + 1 and not start_of_end: 
+                start_of_end = time_series.index[i]
+                new_load.append(i)
+            elif time_series[i] > init_median + 1 and start_of_end:
+                    start_of_end = None
+            elif time_series[i] <= init_median + 1 and start_of_end:
+                    if time_series.index[i] - start_of_end >= pd.Timedelta(10,"min"): # If values where constantly below the threshold for 10min, the load has stopped.
+                        active = False
+                        new_load.append(i)
+                        list_of_load_inds.append(new_load)
+                        new_load = []
         elif active == False:    
-            if time_series[i] > 10:
+            if time_series[i] > init_median + 10:
                 active = True
-                if i < 10:
-                    start_index = 0
+                if i < 1:
+                    new_load = [0]
                 else:
-                    start_index = i-10
-                new_load.append(start_index)
+                    new_load = [i-1, i]
+                start_of_end = None
     for load in list_of_load_inds:
-        list_of_loads.append(time_series[load])
+        load_ds = time_series[load]
+        list_of_loads.append(load_ds[:load_ds.index[-1]-pd.Timedelta(10,"min")])
     return list_of_loads
 
 def padding(list_of_loads, length):
@@ -49,17 +53,17 @@ def find_anomalous_lengths(list_of_loads):
     anomalous_length_indices = [i for i in range(len(list_of_loads)) if predictions[i]==-1]
     return anomalous_length_indices
 
-def train_test(data_list, loads, anomalies):
+def train_test(data_list, loads, anomalies, init_median):
     data_series = pd.Series(data=[data_point for _, data_point in data_list], index=[timestamp for timestamp, _ in data_list]).sort_index()
     data_series = data_series[~data_series.index.duplicated(keep='first')]
     if loads==[]:
         old_number_of_loads=0
-        loads = extract_loads(data_series)
+        loads = extract_loads(data_series, init_median)
     else:
         old_number_of_loads = len(loads)
         last_load = loads[-1]
         endpoint_last_load = last_load.index[-1]
-        loads += extract_loads(data_series.loc[endpoint_last_load:])
+        loads += extract_loads(data_series.loc[endpoint_last_load:], init_median)
     if len(loads) > old_number_of_loads:
         list_of_normalized_loads = [preprocessing.normalize_data(load) for load in loads]
         anomalous_length_indices = find_anomalous_lengths(list_of_normalized_loads)

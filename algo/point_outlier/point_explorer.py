@@ -7,8 +7,11 @@ __all__ = ("Point_Explorer",)
 LOG_PREFIX = "POINT_DETECTOR"
 
 class Point_Explorer(utils.StdPointOutlierDetector):
-    def __init__(self, data_path):
+    def __init__(self, data_path, device_type, init_median):
         super().__init__(data_path)
+        self.active = False # Introduce this variable to constantly check
+        self.device_type = device_type
+        self.init_median = init_median
 
     def check(self, value, timestamp):
         new_value = float(value)
@@ -36,8 +39,22 @@ class Point_Explorer(utils.StdPointOutlierDetector):
             }
         
         return False, {}
-
-    def update_with_new_value(self, value):         
-        self.update(value)
-        self.save()
+    
+    def update_with_new_value(self, value, timestamp): 
+        if self.device_type == "load_device":
+            if not self.active and value > self.init_median + 10:
+                self.active = True
+                start_of_end = None
+            elif self.active:
+                if value <= self.init_median + 1 and not start_of_end:
+                    start_of_end = timestamp
+                elif value <= self.init_median + 1 and start_of_end:
+                    if timestamp - start_of_end >= pd.Timedelta(10,"min"):
+                        self.active = False
+                elif value > self.init_median + 1 and start_of_end:
+                    start_of_end = None
+                
+        if self.active or self.device_type == "cont_device":
+            self.update(value)
+            self.save()
             
