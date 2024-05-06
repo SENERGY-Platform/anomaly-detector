@@ -1,19 +1,34 @@
-# anomaly-detector
+# Anomaly Detector
+
+
+## Input
+<!---
+| key                | type                                                 | description                                               | 
+|--------------------|------------------------------------------------------|-----------------------------------------------------------|----------|
+|     |                                              |                      |     |
+| `value`   | string | Anything that outputs a numeric value |
+-->
+
+## Output 
+<!---
+| key                | type                                                 | description                                               | 
+|--------------------|------------------------------------------------------|-----------------------------------------------------------|----------|
+|     |                                              |                      |     |
+| `value`   | string | ID of source providing weather forecast data. |
+| `type`    | string | Anomaly Type |
+| `sub_type` | string | Anomaly Sub Type |
+| `mean` | float | Current mean of point outlier detector that detected the anomaly |
+| `threshold` | float | Threshold that was used to compare with single values |
+| `device_id` | string | Device for which the anomaly was detected |
+| `initial_phase` | string | Message whether and how long the operator is in the initialization/training phase |
+-->
 
 ## Config options
 <!---
 | key                | type                                                 | description                                               | required |
 |--------------------|------------------------------------------------------|-----------------------------------------------------------|----------|
 |     |                                              |                      |     |
-| `weather_src_id`   | string                                               | ID of source providing weather forecast data.             | yes      |
 | `logger_level`     | string                                               | `info`, `warning` (default), `error`, `critical`, `debug` | no       |
-| `selectors`        | array[object{"name": string, "args": array[string]}] | Define selectors to distinguish between data sources.     | no       |
-| `power_td`         | float                                                | Time difference between consecutive power values in min (default:0.17)   | no       |
-| `weather_dim`      | integer                                              |                                                           | no       |
 | `data_path`        | string                                               | Path to reward and model files. Default: "/opt/data"      | no       |
-| `buffer_len`       | integer                                              | Length of replay buffer (default: 48)                     | no       |
-| `p_1`              | integer                                              | Power for reward calculation if action==1  (default:1)    | no       |
-| `p_0`              | integer                                              | Power for reward calculation if action==0  (default:1)    | no       |
-| `history_modus`    | string                                               | `all`, `daylight` (default)                               | no       |
 
 -->
