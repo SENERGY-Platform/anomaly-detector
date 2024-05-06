@@ -139,28 +139,12 @@ class Operator(OperatorBase):
             self.operator_start_time = timestamp
 
         util.logger.debug(f'{LOG_PREFIX}: Device: {device_id} Input time: {str(data["time"])} Value: {str(data["value"])}')
-
-        init_value = {
-            "type": False,
-            "sub_type": "",
-            "value": "",
-            "threshold": 0,
-            "mean": 0
-        }
-        if self.init_phase_handler.operator_is_in_init_phase(timestamp):
-            self.data_list_for_device_type_check.append((timestamp, value))
-            return self.init_phase_handler.generate_init_msg(timestamp, init_value)
         
-        if self.init_phase_handler.init_phase_needs_to_be_reset():
-            return self.init_phase_handler.reset_init_phase(init_value)
-
-        if not self.device_type:
-            self.device_type, self.init_median = self.get_device_type()
- 
+        operator_is_init = self.init_phase_handler.operator_is_in_init_phase(timestamp)
         device_detector = self.get_device_detectors(input_id)
         anomalies_found = None
         timestamp_without_tz = timestamp.tz_localize(None)
-        if self.input_is_real_time(timestamp):
+        if self.input_is_real_time(timestamp) and not operator_is_init:
             device_detector.start_freq_loop()
             util.logger.debug(f"{LOG_PREFIX}: Check input for anomalies")
             anomalies_found = device_detector.check_input(value, timestamp_without_tz)
@@ -169,6 +153,24 @@ class Operator(OperatorBase):
 
         util.logger.debug(f"{LOG_PREFIX}: Register new input at detectors")
         device_detector.update(value, timestamp_without_tz, self.input_is_real_time(timestamp))
+        
+
+        init_value = {
+            "type": False,
+            "sub_type": "",
+            "value": "",
+            "threshold": 0,
+            "mean": 0
+        }
+        if operator_is_init:
+            self.data_list_for_device_type_check.append((timestamp, value))
+            return self.init_phase_handler.generate_init_msg(timestamp, init_value)
+
+        if self.init_phase_handler.init_phase_needs_to_be_reset():
+            return self.init_phase_handler.reset_init_phase(init_value)
+
+        if not self.device_type:
+            self.device_type, self.init_median = self.get_device_type()
         
         if anomalies_found:
             return anomalies_found
