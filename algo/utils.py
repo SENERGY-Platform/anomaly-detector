@@ -28,8 +28,7 @@ class StdPointOutlierDetector():
         self.current_mean, 
         self.num_datepoints) = self.load_data(self.current_stddev, 
                                               self.current_mean, 
-                                              self.num_datepoints, 
-                                              self.first_data_time)
+                                              self.num_datepoints)
 
         
     def calculate_std(self, new_value, current_stddev, current_mean, num_datepoints):
