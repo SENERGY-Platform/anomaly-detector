@@ -30,7 +30,7 @@ from algo.detector import AnomalyDetector
 LOG_PREFIX = "MAIN"
 
 def parse_bool(value):
-    return (value == "True" or value == "true" or value == "1" or value)
+    return (value == "True" or value == "true" or value == "1")
 
 class CustomConfig(Config):
     data_path = "/opt/data"
@@ -38,7 +38,7 @@ class CustomConfig(Config):
     check_data_extreme_outlier: bool = True
     check_data_schema: bool = True
     check_receive_time_outlier: bool = True
-    check_consumption: bool = True
+    check_consumption: bool = False
     init_phase_length: float = 2
     init_phase_level: str = "d"
 
