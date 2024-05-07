@@ -43,7 +43,6 @@ class StdPointOutlierDetector():
         current_stddev_path = self.filename_dict["current_stddev"]
         current_mean_path = self.filename_dict["current_mean"]
         num_datepoints_path = self.filename_dict["num_datepoints"]
-        first_data_time_path = self.filename_dict["first_data_time"]
 
         with open(current_stddev_path, 'wb') as f:
             pickle.dump(self.current_stddev, f)
@@ -76,18 +75,18 @@ class StdPointOutlierDetector():
     def point_is_anomalous_high(self, point):
         if self.num_datepoints < 2:
             return False
-        return point > self.current_mean + 5*self.current_stddev
+        return point > self.get_upper_threshold()
 
     def point_is_anomalous_low(self, point):
         if self.num_datepoints < 2:
             return False
-        return point < self.current_mean - 5*self.current_stddev
+        return point < self.get_lower_threshold()
 
     def get_upper_threshold(self):
-        return self.current_mean + 5*self.current_stddev
+        return self.current_mean + 30*self.current_stddev
 
     def get_lower_threshold(self):
-        return self.current_mean + 5*self.current_stddev
+        return self.current_mean - 30*self.current_stddev
 
     def update(self, point):
         self.current_stddev = self.calculate_std(point, self.current_stddev, self.current_mean, self.num_datepoints)

@@ -9,7 +9,6 @@ def extract_loads(time_series, init_median):
     list_of_loads = []
     list_of_load_inds = []
     new_load = []
-    end_check = []
     active = False
     for i in range(len(time_series)):
         if active == True:
@@ -21,9 +20,6 @@ def extract_loads(time_series, init_median):
             elif time_series[i] <= init_median + 1 and start_of_end:
                 if time_series.index[i] - start_of_end >= pd.Timedelta(10,"min"): # If values where constantly below the threshold for 10min, the load has stopped.
                     active = False
-                    print(new_load)
-                    import time
-                    time.sleep(5)
                     list_of_load_inds.append(new_load)
                     new_load = []
         elif active == False:    
@@ -69,7 +65,7 @@ def train_test(data_list, loads, anomalies, init_median):
     if len(loads) > old_number_of_loads:
         list_of_normalized_loads = [preprocessing.normalize_data(load) for load in loads]
         anomalous_length_indices = find_anomalous_lengths(list_of_normalized_loads)
-        if len(loads)-1 in anomalous_length_indices:
+        if len(loads)-1 in anomalous_length_indices and len(loads) >= 15:
             anomalies.append((loads[-1],'length of load'))
             util.logger.debug('A load of anomalous length just ended!')
             return 'load_device_anomaly_length', loads, anomalies

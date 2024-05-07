@@ -9,7 +9,7 @@ def batch_train(data_list, first_data_time, last_training_time, device_type, mod
         current_timestamp = utils.todatetime(data_list[-1][0]).tz_localize(None)
         if current_timestamp-last_training_time.tz_localize(None) >= pd.Timedelta(14, 'days'): 
             if device_type == 'cont_device':
-                if last_training_time == first_data_time:
+                if last_training_time.tz_localize(None) == first_data_time.tz_localize(None):
                     model = cont_device.Autoencoder(32)
                     if use_cuda:
                         model = model.cuda()
@@ -22,7 +22,7 @@ def batch_train(data_list, first_data_time, last_training_time, device_type, mod
             return last_training_time, model, training_performance
 
 def test(data_list, first_data_time, last_training_time, device_type, model, use_cuda, anomalies, loads, init_median):
-        if device_type == 'cont_device' and last_training_time > first_data_time:
+        if device_type == 'cont_device' and last_training_time.tz_localize(None) > first_data_time.tz_localize(None):
             output, anomalies = cont_device.test(data_list, model, use_cuda, anomalies)
             return output, loads, anomalies
         elif device_type == 'load_device':

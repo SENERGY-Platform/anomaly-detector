@@ -59,6 +59,15 @@ class AnomalyDetector():
             consumption_explorer = consumption_anomaly.Consumption_Explorer(os.path.join(data_path, "consumption_explorer"))
 
 
+    def update_device_type(self, device_type):
+        for detector in self.active_detectors:
+            detector.device_type = device_type
+
+    def update_init_median(self, init_median):
+        for detector in self.active_detectors:
+            detector.init_median = init_median
+
+
     def check_input(self, value, timestamp):
         anomaly_results = []
         for detector in self.active_detectors:

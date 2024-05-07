@@ -148,8 +148,9 @@ class Operator(OperatorBase):
         device_detector = self.get_device_detectors(input_id)
         anomalies_found = None
         timestamp_without_tz = timestamp.tz_localize(None)
-        #if self.input_is_real_time(timestamp) and not operator_is_init:
-        device_detector.start_freq_loop()
+        if self.input_is_real_time(timestamp):
+            device_detector.start_freq_loop()
+
         util.logger.debug(f"{LOG_PREFIX}: Check input for anomalies")
         anomalies_found = device_detector.check_input(value, timestamp_without_tz)
         util.logger.debug(f"{LOG_PREFIX}: Found Anomalies: {anomalies_found}")
@@ -175,8 +176,10 @@ class Operator(OperatorBase):
 
         if not self.device_type:
             self.device_type, self.init_median = self.get_device_type()
+            self.device_detectors[input_id].update_device_type(self.device_type)
+            self.device_detectors[input_id].update_init_median(self.init_median)
         
-        if anomalies_found:
+        if anomalies_found and not operator_is_init:
             return anomalies_found
  
     def stop(self):
