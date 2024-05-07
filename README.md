@@ -2,15 +2,13 @@
 
 
 ## Input
-<!---
 | key                | type                                                 | description                                               | 
 |--------------------|------------------------------------------------------|-----------------------------------------------------------|----------|
 |     |                                              |                      |     |
 | `value`   | string | Anything that outputs a numeric value |
--->
 
 ## Output 
-<!---
+
 | key                | type                                                 | description                                               | 
 |--------------------|------------------------------------------------------|-----------------------------------------------------------|----------|
 |     |                                              |                      |     |
@@ -21,14 +19,11 @@
 | `threshold` | float | Threshold that was used to compare with single values |
 | `device_id` | string | Device for which the anomaly was detected |
 | `initial_phase` | string | Message whether and how long the operator is in the initialization/training phase |
--->
 
 ## Config options
-<!---
 | key                | type                                                 | description                                               | required |
 |--------------------|------------------------------------------------------|-----------------------------------------------------------|----------|
 |     |                                              |                      |     |
 | `logger_level`     | string                                               | `info`, `warning` (default), `error`, `critical`, `debug` | no       |
 | `data_path`        | string                                               | Path to reward and model files. Default: "/opt/data"      | no       |
 
--->
