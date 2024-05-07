@@ -2,22 +2,22 @@ from . import curve_utils, cont_device
 from algo import utils
 import pandas as pd
 import torch
+import os
 
-import operator_lib.util as util
 
 __all__ = ("Curve_Explorer",)
 LOG_PREFIX = "CURVE_DETECTOR"
 
 class Curve_Explorer:
-    def __init__(self, data_path, device_type, init_median):
-        self.filename_dict = {"data": f'{data_path}/data.parquet', "initial_time": f'{data_path}/initial_time.pickle', "first_data_time": f'{data_path}/first_data_time.pickle',
-                         "last_training_time": f'{data_path}/last_training_time.pickle', "device_type": f'{data_path}/device_type.pickle',
+    def __init__(self, data_path, device_type, init_median, first_data_time):
+        if not os.path.exists(data_path):
+            os.makedirs(data_path)
+        self.filename_dict = {"data": f'{data_path}/data.parquet', "last_training_time": f'{data_path}/last_training_time.pickle',
                          "anomalies": f'{data_path}/anomalies.pickle', "training_performance": f'{data_path}/training_performance.pickle',
                          "loads": f'{data_path}/loads.pickle', "model": f'{data_path}/model.pt'}
 
-        self.initial_time = pd.Timestamp.now()
-        self.first_data_time = None
-        self.last_training_time = None
+        self.first_data_time = first_data_time
+        self.last_training_time = self.first_data_time
         self.timestamp_last_anomaly = pd.Timestamp.min
         self.timestamp_last_notification = pd.Timestamp.min
         self.data_list = []
@@ -29,19 +29,13 @@ class Curve_Explorer:
         self.init_median = init_median
 
         (self.data_list, 
-         self.initial_time, 
-         self.first_data_time, 
-         self.last_training_time, 
-         self.device_type, 
+         self.last_training_time,
          self.anomalies, 
          self.training_performance, 
          self.loads, 
          self.model) = utils.load_data(self.filename_dict, 
-                                       self.data_list, 
-                                       self.initial_time, 
-                                       self.first_data_time, 
-                                       self.last_training_time, 
-                                       self.device_type, 
+                                       self.data_list,
+                                       self.last_training_time,  
                                        self.anomalies, 
                                        self.training_performance, 
                                        self.loads, 
@@ -87,8 +81,8 @@ class Curve_Explorer:
         }
 
     def save(self):
-        utils.save_data(self.filename_dict, self.initial_time, self.first_data_time, self.last_training_time, self.data_list,
-                              self.model, self.training_performance, self.anomalies, self.device_type, self.loads)
+        utils.save_data(self.filename_dict, self.last_training_time, self.data_list,
+                              self.model, self.training_performance, self.anomalies, self.loads)
 
     def stop(self):
         self.save()

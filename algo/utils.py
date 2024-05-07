@@ -104,13 +104,10 @@ def todatetime(timestamp):
         else:
             return pd.to_datetime(timestamp)
 
-def save_data(filename_dict, initial_time, first_data_time, last_training_time, data_list, model,
-              training_performance, anomalies, device_type, loads):
+def save_data(filename_dict, last_training_time, data_list, model,
+              training_performance, anomalies, loads):
         data_path = filename_dict["data"]
-        initial_time_path = filename_dict["initial_time"]
-        first_data_time_path = filename_dict["first_data_time"]
         last_training_time_path = filename_dict["last_training_time"]
-        device_type_path = filename_dict["device_type"]
         anomalies_path = filename_dict["anomalies"]
         training_performance_path = filename_dict["training_performance"]
         loads_path = filename_dict["loads"]
@@ -122,14 +119,8 @@ def save_data(filename_dict, initial_time, first_data_time, last_training_time, 
         df = data_series.to_frame()
         df.columns = ['power_values']
         df.to_parquet(data_path)
-        with open(initial_time_path, 'wb') as f:
-            pickle.dump(initial_time, f)
-        with open(first_data_time_path, 'wb') as f:
-            pickle.dump(first_data_time, f)
         with open(last_training_time_path, 'wb') as f:
             pickle.dump(last_training_time, f)
-        with open(device_type_path, 'wb') as f:
-            pickle.dump(device_type, f)
         with open(anomalies_path, 'wb') as f:
             pickle.dump(anomalies, f)
         with open(training_performance_path, 'wb') as f:
@@ -139,12 +130,9 @@ def save_data(filename_dict, initial_time, first_data_time, last_training_time, 
         torch.save(model, model_path)
 
 
-def load_data(filename_dict, data_list, initial_time, first_data_time, last_training_time, device_type, anomalies, training_performance, loads, model):
+def load_data(filename_dict, data_list, last_training_time, anomalies, training_performance, loads, model):
     data_path = filename_dict["data"]
-    initial_time_path = filename_dict["initial_time"]
-    first_data_time_path = filename_dict["first_data_time"]
     last_training_time_path = filename_dict["last_training_time"]
-    device_type_path = filename_dict["device_type"]
     anomalies_path = filename_dict["anomalies"]
     training_performance_path = filename_dict["training_performance"]
     loads_path = filename_dict["loads"]
@@ -162,21 +150,9 @@ def load_data(filename_dict, data_list, initial_time, first_data_time, last_trai
         except ArrowInvalid:
             print("Data buffer could not be loaded! This might be caused by not having any data in the buffer yet.")
 
-    if os.path.exists(initial_time_path):
-       with open(initial_time_path, 'rb') as f:
-           initial_time = pickle.load(f)
-
-    if os.path.exists(first_data_time_path):
-       with open(first_data_time_path, 'rb') as f:
-           first_data_time = pickle.load(f)
-
     if os.path.exists(last_training_time_path):
        with open(last_training_time_path, 'rb') as f:
            last_training_time = pickle.load(f)
-
-    if os.path.exists(device_type_path):
-       with open(device_type_path, 'rb') as f:
-           device_type = pickle.load(f)
 
     if os.path.exists(anomalies_path):
        with open(anomalies_path, 'rb') as f:
@@ -193,7 +169,7 @@ def load_data(filename_dict, data_list, initial_time, first_data_time, last_trai
     if os.path.exists(model_path):
         model = torch.load(model_path)
 
-    return data_list, initial_time, first_data_time, last_training_time, device_type, anomalies, training_performance, loads, model
+    return data_list, last_training_time, anomalies, training_performance, loads, model
 
 def load(data_path, file_name):
     file_path = os.path.join(data_path, file_name)

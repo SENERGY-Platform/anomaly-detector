@@ -13,17 +13,19 @@ def extract_loads(time_series, init_median):
     active = False
     for i in range(len(time_series)):
         if active == True:
+            new_load.append(i)
             if time_series[i] < init_median + 1 and not start_of_end: 
                 start_of_end = time_series.index[i]
-                new_load.append(i)
             elif time_series[i] > init_median + 1 and start_of_end:
-                    start_of_end = None
+                start_of_end = None
             elif time_series[i] <= init_median + 1 and start_of_end:
-                    if time_series.index[i] - start_of_end >= pd.Timedelta(10,"min"): # If values where constantly below the threshold for 10min, the load has stopped.
-                        active = False
-                        new_load.append(i)
-                        list_of_load_inds.append(new_load)
-                        new_load = []
+                if time_series.index[i] - start_of_end >= pd.Timedelta(10,"min"): # If values where constantly below the threshold for 10min, the load has stopped.
+                    active = False
+                    print(new_load)
+                    import time
+                    time.sleep(5)
+                    list_of_load_inds.append(new_load)
+                    new_load = []
         elif active == False:    
             if time_series[i] > init_median + 10:
                 active = True

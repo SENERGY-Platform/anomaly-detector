@@ -24,6 +24,7 @@ import pandas as pd
 import datetime
 import operator_lib.util as util
 from operator_lib.util import Config, OperatorBase, InitPhase, setup_operator_starttime, todatetime, timestamp_to_str
+from operator_lib.util.persistence import save, load
 
 from algo.detector import AnomalyDetector
 
@@ -67,10 +68,11 @@ class Operator(OperatorBase):
 
         self.init_phase_duration = pd.Timedelta(self.config.init_phase_length, self.config.init_phase_level)
         self.operator_start_time = setup_operator_starttime(self.config.data_path)
-        self.operator_start_time = None
-
-        init_phase_duration = pd.Timedelta(self.config.init_phase_length, self.config.init_phase_level)        
-        self.init_phase_handler = InitPhase(self.config.data_path, init_phase_duration)
+        self.first_data_time =  load(self.config.data_path, "first_data_time.pickle")
+        self.device_type = load(self.config.data_path, "device_type.pickle")
+        self.init_median = load(self.config.data_path, "init_median.pickle")
+              
+        self.init_phase_handler = InitPhase(self.config.data_path, self.init_phase_duration, self.first_data_time)
         value = {
             "type": False,
             "sub_type": "",
@@ -102,7 +104,8 @@ class Operator(OperatorBase):
             self.config.data_path,
             self.produce,
             self.device_type,
-            self.init_median
+            self.init_median,
+            self.first_data_time
         )
         self.device_detectors[input_ids] = device_detector
         return device_detector
@@ -135,8 +138,9 @@ class Operator(OperatorBase):
         timestamp = todatetime(data['time'])
         value = float(data['value'])
 
-        if not self.operator_start_time:
-            self.operator_start_time = timestamp
+        if not self.first_data_time:
+            self.first_data_time = timestamp
+            self.init_phase_handler = InitPhase(self.config.data_path, self.init_phase_duration, self.first_data_time)
 
         util.logger.debug(f'{LOG_PREFIX}: Device: {device_id} Input time: {str(data["time"])} Value: {str(data["value"])}')
         
@@ -144,11 +148,11 @@ class Operator(OperatorBase):
         device_detector = self.get_device_detectors(input_id)
         anomalies_found = None
         timestamp_without_tz = timestamp.tz_localize(None)
-        if self.input_is_real_time(timestamp) and not operator_is_init:
-            device_detector.start_freq_loop()
-            util.logger.debug(f"{LOG_PREFIX}: Check input for anomalies")
-            anomalies_found = device_detector.check_input(value, timestamp_without_tz)
-            util.logger.debug(f"{LOG_PREFIX}: Found Anomalies: {anomalies_found}")
+        #if self.input_is_real_time(timestamp) and not operator_is_init:
+        device_detector.start_freq_loop()
+        util.logger.debug(f"{LOG_PREFIX}: Check input for anomalies")
+        anomalies_found = device_detector.check_input(value, timestamp_without_tz)
+        util.logger.debug(f"{LOG_PREFIX}: Found Anomalies: {anomalies_found}")
             
 
         util.logger.debug(f"{LOG_PREFIX}: Register new input at detectors")
@@ -176,7 +180,12 @@ class Operator(OperatorBase):
             return anomalies_found
  
     def stop(self):
+        super().stop()
         for device, device_detector in self.device_detectors.items():
             util.logger.info(f"Stop Anomaly Detector for device: {device}")
             device_detector.stop()
             util.logger.info("Anomaly Detector stopped")
+        save(self.config.data_path, "first_data_time.pickle", self.first_data_time)
+        save(self.config.data_path, "device_type.pickle", self.device_type)
+        save(self.config.data_path, "init_median.pickle", self.init_median)
+        

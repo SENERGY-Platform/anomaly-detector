@@ -7,7 +7,7 @@ __all__ = ("batch_train", "test")
 
 def batch_train(data_list, first_data_time, last_training_time, device_type, model, use_cuda, training_performance):
         current_timestamp = utils.todatetime(data_list[-1][0]).tz_localize(None)
-        if current_timestamp-last_training_time >= pd.Timedelta(14, 'days'): 
+        if current_timestamp-last_training_time.tz_localize(None) >= pd.Timedelta(14, 'days'): 
             if device_type == 'cont_device':
                 if last_training_time == first_data_time:
                     model = cont_device.Autoencoder(32)
@@ -18,7 +18,7 @@ def batch_train(data_list, first_data_time, last_training_time, device_type, mod
                 return last_training_time, model, training_performance
             last_training_time = current_timestamp
             return last_training_time, model, training_performance
-        elif current_timestamp-last_training_time < pd.Timedelta(14, 'days'):
+        elif current_timestamp-last_training_time.tz_localize(None) < pd.Timedelta(14, 'days'):
             return last_training_time, model, training_performance
 
 def test(data_list, first_data_time, last_training_time, device_type, model, use_cuda, anomalies, loads, init_median):

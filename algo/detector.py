@@ -22,19 +22,21 @@ class AnomalyDetector():
         data_path,
         produce_func,
         device_type,
-        init_median
+        init_median,
+        first_data_time
     ):
         self.active_detectors = []
         self.device_id = device_id
         self.device_type = device_type
         self.init_median = init_median
+        self.first_data_time = first_data_time
         
         if check_data_schema:
             util.logger.info(f"{LOG_PREFIX}: Data Schema Detector is active")
 
         if check_data_anomalies:
             print(f"{LOG_PREFIX}: Curve Explorer is active!")
-            self.Curve_Explorer = curve_anomaly.Curve_Explorer(data_path, self.device_type, self.init_median)
+            self.Curve_Explorer = curve_anomaly.Curve_Explorer(os.path.join(data_path, "curve_explorer"), self.device_type, self.init_median, self.first_data_time)
             self.active_detectors.append(self.Curve_Explorer)
         
         if check_data_extreme_outlier:
