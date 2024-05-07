@@ -67,7 +67,7 @@ class Operator(OperatorBase):
             os.mkdir(self.config.data_path)
 
         self.init_phase_duration = pd.Timedelta(self.config.init_phase_length, self.config.init_phase_level)
-        self.operator_start_time = setup_operator_starttime(self.config.data_path).tz_localize(None)
+        self.operator_start_time = pd.Timestamp(setup_operator_starttime(self.config.data_path)).tz_localize(None)
         self.first_data_time =  load(self.config.data_path, "first_data_time.pickle")
         self.device_type = load(self.config.data_path, "device_type.pickle")
         self.init_median = load(self.config.data_path, "init_median.pickle")
