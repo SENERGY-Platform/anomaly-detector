@@ -210,7 +210,7 @@ def notification_decision(timestamp_last_anomaly, timestamp_last_notification, t
         anomaly_during_last_30_min = True
     else:
         anomaly_during_last_30_min = False
-    if timestamp <= pd.Timedelta(30,'T') + timestamp_last_anomaly:
+    if timestamp <= pd.Timedelta(30,'T') + timestamp_last_notification:
         notification_during_last_30_min = True
     else:
         notification_during_last_30_min = False
