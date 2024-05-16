@@ -170,10 +170,8 @@ def test(data_list, model, use_cuda, anomalies, model_input_window_length=205):
     '''if model_input_data_array.shape[0]-1 in anomalous_reconstruction_area_errors:
         anomalous_time_window = data_series[-model_input_window_length:]
         anomalous_time_window_smooth = data_series_smooth[-model_input_window_length:]
-        anomalous_time_window_smooth_short = data_series_smooth[-int(model_input_window_length/2):]
         anomalies.append((anomalous_time_window,
                                            anomalous_time_window_smooth,
-                                           anomalous_time_window_smooth_short,
                                            'area'))
         print('An anomaly has just occurred! (area error)')
         model.train()
@@ -181,10 +179,8 @@ def test(data_list, model, use_cuda, anomalies, model_input_window_length=205):
     if model_input_data_array.shape[0]-1 in anomalous_reconstruction_pcm_errors:
         anomalous_time_window = data_series[-model_input_window_length:]
         anomalous_time_window_smooth = data_series_smooth[-model_input_window_length:]
-        anomalous_time_window_smooth_short = data_series_smooth[-int(model_input_window_length/2):]
         anomalies.append((anomalous_time_window,
                                            anomalous_time_window_smooth,
-                                           anomalous_time_window_smooth_short,
                                            'pcm'))
         print('An anomaly has just occurred! (pcm error)')
         model.train()
@@ -192,10 +188,8 @@ def test(data_list, model, use_cuda, anomalies, model_input_window_length=205):
     if model_input_data_array.shape[0]-1 in anomalous_reconstruction_dtw_errors:
         anomalous_time_window = data_series[-model_input_window_length:]
         anomalous_time_window_smooth = data_series_smooth[-model_input_window_length:]
-        anomalous_time_window_smooth_short = data_series_smooth[-int(model_input_window_length/2):]
         anomalies.append((anomalous_time_window,
                                            anomalous_time_window_smooth,
-                                           anomalous_time_window_smooth_short,
                                            'dtw'))
         print('An anomaly has just occurred! (dtw error)')
         model.train()
