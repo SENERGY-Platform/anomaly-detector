@@ -107,7 +107,7 @@ def batch_train(data_list, model, use_cuda, training_performance, batch_length_d
     training_performance.append(average_tr_loss_per_epoch_list)
     return autoencoder, training_performance
 
-def get_area_errors(model_input_data_array, model, use_cuda):
+def get_reconstruction_errors(model_input_data_array, model, use_cuda):
     errors = []
     model.eval()
     for data_series in model_input_data_array:
@@ -115,40 +115,7 @@ def get_area_errors(model_input_data_array, model, use_cuda):
         if use_cuda:
             model_input = model_input.cuda()
         model_output = model(model_input)
-        x = np.linspace(0,len(data_series)-1,len(data_series))
-        y_1 = np.squeeze(model_output.detach().cpu().numpy())
-        y_2 = data_series
-        errors.append(similaritymeasures.area_between_two_curves(np.column_stack((x,y_1)), np.column_stack((x,y_2))))
-    model.train()
-    return errors
-
-def get_pcm_errors(model_input_data_array, model, use_cuda):
-    errors = []
-    model.eval()
-    for data_series in model_input_data_array:
-        model_input = torch.Tensor(data_series)
-        if use_cuda:
-            model_input = model_input.cuda()
-        model_output = model(model_input)
-        x = np.linspace(0,len(data_series)-1,len(data_series))
-        y_1 = np.squeeze(model_output.detach().cpu().numpy())
-        y_2 = data_series
-        errors.append(similaritymeasures.pcm(np.column_stack((x,y_1)), np.column_stack((x,y_2))))
-    model.train()
-    return errors
-
-def get_dtw_errors(model_input_data_array, model, use_cuda):
-    errors = []
-    model.eval()
-    for data_series in model_input_data_array:
-        model_input = torch.Tensor(data_series)
-        if use_cuda:
-            model_input = model_input.cuda()
-        model_output = model(model_input)
-        x = np.linspace(0,len(data_series)-1,len(data_series))
-        y_1 = np.squeeze(model_output.detach().cpu().numpy())
-        y_2 = data_series
-        errors.append(similaritymeasures.dtw(np.column_stack((x,y_1)), np.column_stack((x,y_2)), metric='canberra')[0])
+        errors.append(abs(model_output.detach().cpu().numpy()-data_series).sum()/205)
     model.train()
     return errors
 
@@ -160,38 +127,15 @@ def test(data_list, model, use_cuda, anomalies, model_input_window_length=205):
     data_series = preprocessing.minute_resampling(data_series)
     data_series_smooth = preprocessing.smooth_data(data_series)
     model_input_data_array = preprocessing.decompose_into_time_windows(data_series_smooth, model_input_window_length)
-    #reconstruction_area_errors = get_area_errors(model_input_data_array, model, use_cuda)
-    #reconstruction_pcm_errors = get_pcm_errors(model_input_data_array, model, use_cuda)
-    reconstruction_dtw_errors = get_dtw_errors(model_input_data_array, model, use_cuda)
-    #anomalous_reconstruction_area_errors = error_calculation.get_anomalous_indices(reconstruction_area_errors,0.05)
-    #anomalous_reconstruction_pcm_errors = error_calculation.get_anomalous_indices(reconstruction_pcm_errors,0.1)
-    anomalous_reconstruction_dtw_errors = error_calculation.get_anomalous_indices(reconstruction_dtw_errors,0.005)
-    #anomalous_reconstruction_indices = error_calculation.get_anomalous_indices(reconstruction_pcm_errors,0.03)+error_calculation.get_anomalous_indices(reconstruction_dtw_errors,0.05)+error_calculation.get_anomalous_indices(reconstruction_area_errors,0.01)
-    '''if model_input_data_array.shape[0]-1 in anomalous_reconstruction_area_errors:
+    reconstruction_errors = get_reconstruction_errors(model_input_data_array, model, use_cuda)
+    anomalous_reconstruction_errors = error_calculation.get_anomalous_indices(reconstruction_errors,0.005)
+    
+    if model_input_data_array.shape[0]-1 in anomalous_reconstruction_errors:
         anomalous_time_window = data_series[-model_input_window_length:]
         anomalous_time_window_smooth = data_series_smooth[-model_input_window_length:]
         anomalies.append((anomalous_time_window,
-                                           anomalous_time_window_smooth,
-                                           'area'))
-        print('An anomaly has just occurred! (area error)')
-        model.train()
-        return 1
-    if model_input_data_array.shape[0]-1 in anomalous_reconstruction_pcm_errors:
-        anomalous_time_window = data_series[-model_input_window_length:]
-        anomalous_time_window_smooth = data_series_smooth[-model_input_window_length:]
-        anomalies.append((anomalous_time_window,
-                                           anomalous_time_window_smooth,
-                                           'pcm'))
-        print('An anomaly has just occurred! (pcm error)')
-        model.train()
-        return 1'''
-    if model_input_data_array.shape[0]-1 in anomalous_reconstruction_dtw_errors:
-        anomalous_time_window = data_series[-model_input_window_length:]
-        anomalous_time_window_smooth = data_series_smooth[-model_input_window_length:]
-        anomalies.append((anomalous_time_window,
-                                           anomalous_time_window_smooth,
-                                           'dtw'))
-        print('An anomaly has just occurred! (dtw error)')
+                                           anomalous_time_window_smooth))
+        print('An anomalous reconstruction error has just occurred!')
         model.train()
         return 'cont_device_anomaly', anomalies
     else:
