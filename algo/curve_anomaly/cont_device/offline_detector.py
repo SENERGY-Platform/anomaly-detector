@@ -1,4 +1,4 @@
-from algo.curve_anomaly.cont_device.cont_detector import CurveDetector
+from algo.curve_anomaly.cont_device.cont_detector import ContCurveDetector
 from algo import utils
 from .. import cont_device
 
@@ -6,7 +6,7 @@ import pandas as pd
 import torch 
 
 
-class OfflineTrainContCurveDetector(CurveDetector):
+class OfflineTrainContCurveDetector(ContCurveDetector):
     # Used for training inside the operator
     def __init__(self, data_path, device_type, init_median, first_data_time):
         super().__init__(data_path, device_type, init_median, first_data_time)
