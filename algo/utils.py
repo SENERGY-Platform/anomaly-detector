@@ -103,13 +103,15 @@ def todatetime(timestamp):
             return pd.to_datetime(timestamp)
 
 def save_data(filename_dict, last_training_time, data_list, model,
-              training_performance, anomalies, loads):
+              training_performance, anomalies, loads, training_max, reconstruction_errors):
         data_path = filename_dict["data"]
         last_training_time_path = filename_dict["last_training_time"]
         anomalies_path = filename_dict["anomalies"]
         training_performance_path = filename_dict["training_performance"]
         loads_path = filename_dict["loads"]
         model_path = filename_dict["model"]
+        training_max_path = filename_dict["training_max"]
+        reconstruction_errors_path = filename_dict["reconstruction_errors"]
 
 
         data_series = pd.Series(data=[data_point for _, data_point in data_list], index=[timestamp.replace(microsecond=0).strftime('%Y-%m-%d %X') for timestamp, _ in data_list]).sort_index()
@@ -126,15 +128,21 @@ def save_data(filename_dict, last_training_time, data_list, model,
         with open(loads_path, 'wb') as f:
             pickle.dump(loads, f)
         torch.save(model, model_path)
+        with open(training_max_path, 'wb') as f:
+            pickle.dump(training_max, f)
+        with open(reconstruction_errors_path, 'wb') as f:
+            pickle.dump(reconstruction_errors, f)
 
 
-def load_data(filename_dict, data_list, last_training_time, anomalies, training_performance, loads, model):
+def load_data(filename_dict, data_list, last_training_time, anomalies, training_performance, loads, model, training_max, reconstruction_errors):
     data_path = filename_dict["data"]
     last_training_time_path = filename_dict["last_training_time"]
     anomalies_path = filename_dict["anomalies"]
     training_performance_path = filename_dict["training_performance"]
     loads_path = filename_dict["loads"]
     model_path = filename_dict["model"]
+    training_max_path = filename_dict["training_max"]
+    reconstruction_errors_path = filename_dict["reconstruction_errors"]
 
     if os.path.exists(data_path):
         data_list = []
@@ -167,7 +175,15 @@ def load_data(filename_dict, data_list, last_training_time, anomalies, training_
     if os.path.exists(model_path):
         model = torch.load(model_path)
 
-    return data_list, last_training_time, anomalies, training_performance, loads, model
+    if os.path.exists(training_max_path):
+       with open(training_max_path, 'rb') as f:
+           training_max = pickle.load(f)
+
+    if os.path.exists(reconstruction_errors_path):
+       with open(reconstruction_errors_path, 'rb') as f:
+           reconstruction_errors = pickle.load(f)
+
+    return data_list, last_training_time, anomalies, training_performance, loads, model, training_max, reconstruction_errors
 
 def load(data_path, file_name):
     file_path = os.path.join(data_path, file_name)

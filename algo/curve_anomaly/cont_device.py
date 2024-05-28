@@ -87,10 +87,8 @@ def train(autoencoder, tr_data, epochs, use_cuda):
             
     return autoencoder, average_tr_loss_per_epoch_list   
 
-def prepare_batches(history_data_series, batch_length_days, train_window_length=205):
+def prepare_batches(history_data_series, train_window_length=205):
     data_set_tr = preprocessing.minute_resampling(history_data_series)
-    if history_data_series.index.max()-history_data_series.index.min() > pd.Timedelta(batch_length_days,'d'):
-        data_set_tr = data_set_tr.loc[history_data_series.index.max()-pd.Timedelta(batch_length_days,'days'):]
     data_set_tr = preprocessing.smooth_data(data_set_tr)
     shift_dict_tr = {}
     for n in range(int(train_window_length/10)):
@@ -101,11 +99,14 @@ def batch_train(data_list, model, use_cuda, training_performance, batch_length_d
     autoencoder = model
     data_series = pd.Series(data=[data_point for _, data_point in data_list], index=[timestamp.replace(microsecond=0) for timestamp, _ in data_list]).sort_index()
     data_series = data_series[~data_series.index.duplicated(keep='first')]
-    normalized_history_data_series = preprocessing.normalize_data(data_series)
-    training_batches = prepare_batches(normalized_history_data_series, batch_length_days, train_window_length=205)
+    if data_series.index.max()-data_series.index.min() > pd.Timedelta(batch_length_days,'d'):
+        data_series = data_series.loc[data_series.index.max()-pd.Timedelta(batch_length_days,'days'):]
+    training_max = data_series.max()
+    normalized_history_data_series = preprocessing.normalize_data(data_series, training_max)
+    training_batches = prepare_batches(normalized_history_data_series, train_window_length=205)
     autoencoder, average_tr_loss_per_epoch_list = train(autoencoder, torch.Tensor(training_batches), epochs, use_cuda)
     training_performance.append(average_tr_loss_per_epoch_list)
-    return autoencoder, training_performance
+    return autoencoder, training_performance, training_max
 
 def get_reconstruction_errors(model_input_data_array, model, use_cuda):
     errors = []
@@ -117,49 +118,46 @@ def get_reconstruction_errors(model_input_data_array, model, use_cuda):
         model_output = model(model_input)
         errors.append(abs(model_output.detach().cpu().numpy()-data_series).sum()/205)
     model.train()
-    return errors
+    return errors, model_output.detach().cpu().numpy()
 
-def test(data_list, model, use_cuda, anomalies, model_input_window_length=205):
+def test(data_list, model, use_cuda, anomalies, training_max, reconstruction_errors, model_input_window_length=205):
     model.eval()
     data_series = pd.Series(data=[data_point for _, data_point in data_list], index=[timestamp.replace(microsecond=0) for timestamp, _ in data_list]).sort_index()
     data_series = data_series[~data_series.index.duplicated(keep='first')]
-    data_series = preprocessing.normalize_data(data_series)
+    data_series = preprocessing.normalize_data(data_series, training_max)
     data_series = preprocessing.minute_resampling(data_series)
+    data_series = data_series[-model_input_window_length-30:]
     data_series_smooth = preprocessing.smooth_data(data_series)
-    model_input_data_array = preprocessing.decompose_into_time_windows(data_series_smooth, model_input_window_length)
-    reconstruction_errors = get_reconstruction_errors(model_input_data_array, model, use_cuda)
+    model_input_data_array = np.array(data_series_smooth[-model_input_window_length:]).reshape(1,-1)
+    new_reconstruction_error = get_reconstruction_errors(model_input_data_array, model, use_cuda)[0][0]
+    reconstructed_curve = get_reconstruction_errors(model_input_data_array, model, use_cuda)[1].flatten()
+    if reconstruction_errors == None:
+        reconstruction_errors = [new_reconstruction_error]
+    else:
+        reconstruction_errors.append(new_reconstruction_error)
+        print(reconstruction_errors)
     anomalous_reconstruction_errors = error_calculation.get_anomalous_indices(reconstruction_errors,0.005)
     
-    if model_input_data_array.shape[0]-1 in anomalous_reconstruction_errors:
+    if len(reconstruction_errors)-1 in anomalous_reconstruction_errors:
         anomalous_time_window = data_series[-model_input_window_length:]
         anomalous_time_window_smooth = data_series_smooth[-model_input_window_length:]
         anomalies.append((anomalous_time_window,
-                                           anomalous_time_window_smooth))
+                                           anomalous_time_window_smooth, reconstructed_curve))
         print('An anomalous reconstruction error has just occurred!')
         model.train()
-        return 'cont_device_anomaly', anomalies
+        return 'cont_device_anomaly', anomalies, reconstruction_errors
     else:
         model.train()
-        return None, anomalies
+        return None, anomalies, reconstruction_errors
     
 
-def notification_decision(timestamp_last_anomaly, timestamp_last_notification, timestamp):
+def notification_decision(timestamp_last_anomaly, timestamp):
     if timestamp <= pd.Timedelta(30,'T') + timestamp_last_anomaly:
         anomaly_during_last_30_min = True
     else:
         anomaly_during_last_30_min = False
-    if timestamp <= pd.Timedelta(30,'T') + timestamp_last_notification:
-        notification_during_last_30_min = True
-    else:
-        notification_during_last_30_min = False
-    
-    if anomaly_during_last_30_min==True and notification_during_last_30_min==False:
-        notification_now=True
-        timestamp_last_notification = timestamp
-    else:
-        notification_now=False
     timestamp_last_anomaly = timestamp
-    return timestamp_last_anomaly, timestamp_last_notification, notification_now
+    return timestamp_last_anomaly, anomaly_during_last_30_min
     
 
 
