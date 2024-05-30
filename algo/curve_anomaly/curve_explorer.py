@@ -20,7 +20,6 @@ class Curve_Explorer:
         self.first_data_time = first_data_time
         self.last_training_time = self.first_data_time
         self.timestamp_last_anomaly = pd.Timestamp.min
-        self.timestamp_last_notification = pd.Timestamp.min
         self.data_list = []
         self.model = None
         self.training_performance = []
