@@ -4,8 +4,7 @@
 ## Input
 | key                | type                                                 | description                                               | 
 |--------------------|------------------------------------------------------|-----------------------------------------------------------|----------|
-|     |                                              |                      |     |
-| `value`   | string | Anything that outputs a numeric value |
+| `value`            | string                                               | Anything that outputs a numeric value                     |
 
 ## Output 
 
