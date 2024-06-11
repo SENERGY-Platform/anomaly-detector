@@ -5,8 +5,8 @@ from . import cont_utils
 
 class ContCurveDetector(CurveDetector):
     # Used for device that send continously data
-    def __init__(self, data_path, device_type, init_median, first_data_time):
-        super().__init__(data_path, device_type, init_median, first_data_time)
+    def __init__(self, data_path, init_median, first_data_time):
+        super().__init__(data_path, init_median, first_data_time)
 
         self.filename_dict.update({"last_training_time": f'{data_path}/last_training_time.pickle',
                               "training_performance": f'{data_path}/training_performance.pickle',
@@ -21,6 +21,7 @@ class ContCurveDetector(CurveDetector):
         self.model = None
         self.training_max = None
         self.reconstruction_errors = None
+        self.data_list = []
 
         (self.last_training_time,
          self.training_performance,  
@@ -41,7 +42,7 @@ class ContCurveDetector(CurveDetector):
                     "sub_type": sub_type,
                     "message": message,
                     "value": value,
-                    "original_reconstructed_curves": df_smooth_and_reconstr.reset_index(inplace=True).to_json(orient="values")
+                    "original_reconstructed_curves": df_smooth_and_reconstr.reset_index().to_json(orient="values")
         }
     
     def save(self):
@@ -50,3 +51,6 @@ class ContCurveDetector(CurveDetector):
 
     def stop(self):
         self.save()
+
+    def update_with_new_value(self, value, timestamp):
+        pass

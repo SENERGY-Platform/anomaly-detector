@@ -1,10 +1,9 @@
 from algo.curve_anomaly.curve_detector import CurveDetector
-import pandas as pd 
 from . import load_utils
 
 class LoadCurveDetector(CurveDetector):
-    def __init__(self, data_path, device_type, init_median, first_data_time):
-        super().__init__(data_path, device_type, init_median, first_data_time)
+    def __init__(self, data_path, init_median, first_data_time):
+        super().__init__(data_path, init_median, first_data_time)
 
         self.filename_dict.update({"loads": f'{data_path}/loads.pickle', "endpoint_last_load": f'{data_path}/endpoint_last_load.pickle'})
 

@@ -1,4 +1,4 @@
-git+https://github.com/SENERGY-Platform/analytics-operator-lib-python@v1.0.17
+git+https://github.com/SENERGY-Platform/analytics-operator-lib-python@v1.1.1
 
 confluent_kafka<2
 pandas<2
@@ -11,3 +11,5 @@ tqdm
 similaritymeasures
 pyarrow
 python-dotenv
+requests==2.32.3
+mlflow==2.11.1

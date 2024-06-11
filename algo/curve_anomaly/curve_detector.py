@@ -3,14 +3,14 @@ from . import curve_utils
  
 
 class CurveDetector():
-    def __init__(self, data_path, device_type, init_median, first_data_time):
+    def __init__(self, data_path, init_median, first_data_time):
         if not os.path.exists(data_path):
             os.makedirs(data_path)
         self.filename_dict = {"data": f'{data_path}/data.parquet', "anomalies": f'{data_path}/anomalies.pickle'}
         self.first_data_time = first_data_time
-        self.device_type = device_type
         self.init_median = init_median
-
+        self.data_path = data_path
+        
         self.data_list = []
         self.anomalies = []
 

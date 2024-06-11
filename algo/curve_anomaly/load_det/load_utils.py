@@ -29,7 +29,7 @@ import numpy as np
 import pandas as pd
 from sklearn.ensemble import IsolationForest
 
-from .. import preprocessing
+from ..cont_det import preprocessing
 import operator_lib.util as util
 
 def extract_loads(time_series, init_median):

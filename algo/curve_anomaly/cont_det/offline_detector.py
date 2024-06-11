@@ -1,14 +1,14 @@
 from algo.curve_anomaly.cont_det.cont_detector import ContCurveDetector
 from algo import utils
-from .. import cont_device
+from . import cont_device
 import pandas as pd 
 import torch 
 
 
 class OfflineTrainContCurveDetector(ContCurveDetector):
     # Used for training inside the operator
-    def __init__(self, data_path, device_type, init_median, first_data_time):
-        super().__init__(data_path, device_type, init_median, first_data_time)
+    def __init__(self, data_path, init_median, first_data_time):
+        super().__init__(data_path, init_median, first_data_time)
 
     def check(self, value, timestamp):
         if self.first_data_time == None:

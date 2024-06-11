@@ -42,6 +42,11 @@ class CustomConfig(Config):
     check_consumption: bool = False
     init_phase_length: float = 2
     init_phase_level: str = "d"
+    retrain_interval: float = 14
+    retrain_level: str = "d"
+    ml_trainer_url: str = "http://ml-trainer-svc.trainer:5000"
+    mlflow_url: str = "http://mlflow-svc.mlflow:5000"
+    curve_detector_training_mode: str = "offline"
 
     def __init__(self, d, **kwargs):
         super().__init__(d, **kwargs)
@@ -56,6 +61,14 @@ class CustomConfig(Config):
         
         if self.init_phase_level == '':
             self.init_phase_level = 'd'
+
+        if self.retrain_interval != '':
+            self.retrain_interval = float(self.retrain_interval)
+        else:
+            self.retrain_interval = 14
+        
+        if self.retrain_level == '':
+            self.retrain_level = 'd'
         
 class Operator(OperatorBase):
     configType = CustomConfig
@@ -66,13 +79,15 @@ class Operator(OperatorBase):
         if not os.path.exists(self.config.data_path):
             os.mkdir(self.config.data_path)
 
+        self.produce = lambda x: print(x)
+
         self.init_phase_duration = pd.Timedelta(self.config.init_phase_length, self.config.init_phase_level)
         self.operator_start_time = pd.Timestamp(setup_operator_starttime(self.config.data_path)).tz_localize(None)
         self.first_data_time =  load(self.config.data_path, "first_data_time.pickle")
         self.device_type = load(self.config.data_path, "device_type.pickle")
         self.init_median = load(self.config.data_path, "init_median.pickle")
               
-        self.init_phase_handler = InitPhase(self.config.data_path, self.init_phase_duration, self.first_data_time)
+        self.init_phase_handler = InitPhase(self.config.data_path, self.init_phase_duration, self.first_data_time, self.produce)
         value = {
             "type": False,
             "sub_type": "",
@@ -80,9 +95,7 @@ class Operator(OperatorBase):
             "threshold": 0,
             "mean": 0
         }
-        if self.init_phase_handler.first_init_msg_needs_to_send():
-            init_msg = self.init_phase_handler.generate_first_init_msg(value)
-            self.produce(init_msg)
+        self.init_phase_handler.send_first_init_msg(value)    
 
         self.device_detectors = {} 
         self.data_list_for_device_type_check = []
@@ -105,7 +118,14 @@ class Operator(OperatorBase):
             self.produce,
             self.device_type,
             self.init_median,
-            self.first_data_time
+            self.first_data_time,
+            self.config.ml_trainer_url,
+            self.config.mlflow_url,
+            self.config.curve_detector_training_mode,
+            self.get_operator_id(),
+            self.get_pipeline_id(),
+            self.config.retrain_level,
+            self.config.retrain_interval
         )
         self.device_detectors[input_ids] = device_detector
         return device_detector
@@ -140,7 +160,7 @@ class Operator(OperatorBase):
 
         if not self.first_data_time:
             self.first_data_time = timestamp
-            self.init_phase_handler = InitPhase(self.config.data_path, self.init_phase_duration, self.first_data_time)
+            self.init_phase_handler = InitPhase(self.config.data_path, self.init_phase_duration, self.first_data_time, self.produce)
 
         util.logger.debug(f'{LOG_PREFIX}: Device: {device_id} Input time: {str(data["time"])} Value: {str(data["value"])}')
         
@@ -155,11 +175,9 @@ class Operator(OperatorBase):
         anomalies_found = device_detector.check_input(value, timestamp_without_tz)
         util.logger.debug(f"{LOG_PREFIX}: Found Anomalies: {anomalies_found}")
             
-
         util.logger.debug(f"{LOG_PREFIX}: Register new input at detectors")
         device_detector.update(value, timestamp_without_tz, self.input_is_real_time(timestamp))
         
-
         init_value = {
             "type": False,
             "sub_type": "",
