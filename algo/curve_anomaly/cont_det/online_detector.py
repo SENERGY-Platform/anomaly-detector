@@ -96,6 +96,7 @@ class OnlineTrainContCurveDetector(ContCurveDetector):
         job_request = {
             "task": "ml_fit",
             "task_settings": {
+                "use_case": "anomaly",
                 "model_parameter": {
                     "window_length": 205,
                     "batch_size": 1,

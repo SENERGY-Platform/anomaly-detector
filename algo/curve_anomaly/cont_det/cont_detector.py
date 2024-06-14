@@ -42,7 +42,9 @@ class ContCurveDetector(CurveDetector):
                     "sub_type": sub_type,
                     "message": message,
                     "value": value,
-                    "original_reconstructed_curves": df_smooth_and_reconstr.reset_index().to_json(orient="values")
+                    "original_reconstructed_curves": df_smooth_and_reconstr.reset_index().to_json(orient="values"),
+                    "start_time": df_smooth_and_reconstr.index[0],
+                    "end_time": df_smooth_and_reconstr.index[-1]
         }
     
     def save(self):
