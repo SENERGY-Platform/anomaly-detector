@@ -94,9 +94,8 @@ class OnlineTrainContCurveDetector(ContCurveDetector):
     def start_training(self, timestamp):
         topic_name, path_to_time, path_to_value = self._get_input_topic()
         job_request = {
-            "task": "ml_fit",
+            "task": "anomaly_detection",
             "task_settings": {
-                "use_case": "anomaly",
                 "model_parameter": {
                     "window_length": 205,
                     "batch_size": 1,
@@ -124,7 +123,7 @@ class OnlineTrainContCurveDetector(ContCurveDetector):
                 "time_range_value": "1",
                 "time_range_level": "d"
             },
-            "toolbox_version": "v2.2.47",
+            "toolbox_version": "v2.2.62",
             "ray_image": "ghcr.io/senergy-platform/ray:v0.0.8"
         }
         util.logger.debug(f"Start online training")
