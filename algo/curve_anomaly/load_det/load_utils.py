@@ -15,6 +15,8 @@ def load_data(filename_dict, loads, endpoint_last_load):
     loads_path = filename_dict["loads"]
     endpoint_last_load_path = filename_dict["endpoint_last_load"]
 
+    loads = []
+    endpoint_last_load = None
     if os.path.exists(loads_path):
        with open(loads_path, 'rb') as f:
            loads = pickle.load(f)
