@@ -123,8 +123,13 @@ class OnlineTrainContCurveDetector(ContCurveDetector):
                 "time_range_value": "1",
                 "time_range_level": "d"
             },
-            "toolbox_version": "v2.2.62",
-            "ray_image": "ghcr.io/senergy-platform/ray:v0.0.8"
+            "toolbox_version": "v2.2.68",
+            "ray_image": "ghcr.io/senergy-platform/ray:v0.0.8",
+            "ray_version": "2.0.9", # must be the same as in the image
+            "cluster": {
+                "number_workers": 1,
+                "cpu_worker_limit": 2
+            }
         }
         util.logger.debug(f"Start online training")
         res = requests.post(self.ml_trainer_url + "/mlfit", json=job_request)

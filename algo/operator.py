@@ -79,7 +79,7 @@ class Operator(OperatorBase):
         if not os.path.exists(self.config.data_path):
             os.mkdir(self.config.data_path)
 
-        self.produce = lambda x: print(x)
+        self.produce = lambda x: print(x) # TODO REMOVE!!!!
 
         self.init_phase_duration = pd.Timedelta(self.config.init_phase_length, self.config.init_phase_level)
         self.operator_start_time = pd.Timestamp(setup_operator_starttime(self.config.data_path)).tz_localize(None)
