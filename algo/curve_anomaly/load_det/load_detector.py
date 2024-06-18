@@ -8,11 +8,12 @@ class LoadCurveDetector(CurveDetector):
         self.filename_dict.update({"loads": f'{data_path}/loads.pickle', "endpoint_last_load": f'{data_path}/endpoint_last_load.pickle'})
         
         self.loads, self.endpoint_last_load = load_utils.load_data(self.filename_dict)
+        if not self.endpoint_last_load:
+            self.endpoint_last_load = self.first_data_time
 
     def check(self, value, timestamp):
         if self.first_data_time == None:
             self.first_data_time = timestamp
-            self.endpoint_last_load = self.first_data_time
             self.data_list.append([timestamp, value])
             return False, ''
         self.data_list.append([timestamp, value])
