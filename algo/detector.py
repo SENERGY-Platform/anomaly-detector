@@ -30,8 +30,9 @@ class AnomalyDetector():
         curve_detector_training_mode,
         operator_id,
         pipeline_id,
-        retrain_level,
-        retrain_interval
+        train_level,
+        train_interval,
+        retrain
     ):
         self.active_detectors = []
         self.device_id = device_id
@@ -45,8 +46,9 @@ class AnomalyDetector():
         self.data_path = data_path
         self.operator_id = operator_id
         self.pipeline_id = pipeline_id
-        self.retrain_level = retrain_level
-        self.retrain_interval = retrain_interval
+        self.train_level = train_level
+        self.train_interval = train_interval
+        self.retrain = retrain 
 
         if check_data_schema:
             util.logger.info(f"{LOG_PREFIX}: Data Schema Detector is active")
@@ -88,8 +90,9 @@ class AnomalyDetector():
                 self.device_id, 
                 self.operator_id, 
                 self.pipeline_id,
-                self.retrain_level,
-                self.retrain_interval    
+                self.train_level,
+                self.train_interval,
+                self.retrain    
             )
             
             self.active_detectors.append(self.Curve_Explorer)

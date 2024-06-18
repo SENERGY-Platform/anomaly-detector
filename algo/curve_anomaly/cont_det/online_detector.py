@@ -22,8 +22,9 @@ class OnlineTrainContCurveDetector(ContCurveDetector):
         mlflow_url,
         operator_id,
         pipeline_id,
-        retrain_level,
-        retrain_interval
+        train_level,
+        train_interval,
+        retrain
     ):
         super().__init__(data_path, init_median, first_data_time)
         self.ml_trainer_url = ml_trainer_url
@@ -34,8 +35,9 @@ class OnlineTrainContCurveDetector(ContCurveDetector):
         self.operator_id = operator_id
         self.pipeline_id = pipeline_id
         self.anomalies = []
-        self.retrain_level = retrain_level
-        self.retrain_interval = retrain_interval
+        self.train_level = train_level
+        self.train_interval = train_interval
+        self.retrain = retrain 
 
     def check(self, value, timestamp):
         if self.first_data_time == None:
@@ -79,14 +81,13 @@ class OnlineTrainContCurveDetector(ContCurveDetector):
         return False, ''
             
     def training_shall_start(self, timestamp):
-        # when there is enough data to train -> this will also trigger a retrain
-        util.logger.debug(f"Current Time: {timestamp} - Last Train Time: {self.last_training_time}")
-        if timestamp - self.last_training_time < pd.Timedelta(self.retrain_interval, self.retrain_level):
+        # Training shall start when there is enough initial data or when retraining is enabled
+        util.logger.debug(f"Current Time: {timestamp} - Last Train Time: {self.last_training_time} < {self.train_interval}{self.train_level}")
+        if timestamp - self.last_training_time < pd.Timedelta(self.train_interval, self.train_level):
             util.logger.debug("Wait with training until enough data is collected")
             return False 
 
-        # TODO remove, only to not spawn endless jobs
-        if self.job_id:
+        if self.job_id and not self.retrain:
             return
 
         return True 

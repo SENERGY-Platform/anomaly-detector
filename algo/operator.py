@@ -42,8 +42,9 @@ class CustomConfig(Config):
     check_consumption: bool = False
     init_phase_length: float = 2
     init_phase_level: str = "d"
-    retrain_interval: float = 14
-    retrain_level: str = "d"
+    train_interval: float = 14
+    train_level: str = "d"
+    retrain: bool = False
     ml_trainer_url: str = "http://ml-trainer-svc.trainer:5000"
     mlflow_url: str = "http://mlflow-svc.mlflow:5000"
     curve_detector_training_mode: str = "offline"
@@ -79,7 +80,7 @@ class Operator(OperatorBase):
         if not os.path.exists(self.config.data_path):
             os.mkdir(self.config.data_path)
 
-        self.produce = lambda x: print(x) # TODO REMOVE!!!!
+        #self.produce = lambda x: print(x)  uncomment for local testing to not pollute kafka topics when portforwarding to cluster is used
 
         self.init_phase_duration = pd.Timedelta(self.config.init_phase_length, self.config.init_phase_level)
         self.operator_start_time = pd.Timestamp(setup_operator_starttime(self.config.data_path)).tz_localize(None)
@@ -124,8 +125,9 @@ class Operator(OperatorBase):
             self.config.curve_detector_training_mode,
             self.get_operator_id(),
             self.get_pipeline_id(),
-            self.config.retrain_level,
-            self.config.retrain_interval
+            self.config.train_level,
+            self.config.train_interval,
+            self.config.retrain
         )
         self.device_detectors[input_ids] = device_detector
         return device_detector

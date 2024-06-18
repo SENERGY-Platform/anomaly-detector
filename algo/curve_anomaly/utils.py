@@ -15,9 +15,10 @@ def create_curve_detector(
     device_id,
     operator_id,
     pipeline_id,
-    retrain_level,
-    retrain_interval
-    ):
+    train_level,
+    train_interval,
+    retrain
+):
 
     data_path = os.path.join(data_path, "curve_explorer")
     if device_type == "cont_device":
@@ -31,8 +32,9 @@ def create_curve_detector(
                 mlflow_url, 
                 operator_id, 
                 pipeline_id,
-                retrain_level,
-                retrain_interval
+                train_level,
+                train_interval,
+                retrain
             )
         else:
             return OfflineTrainContCurveDetector(data_path, init_median, first_data_time)
