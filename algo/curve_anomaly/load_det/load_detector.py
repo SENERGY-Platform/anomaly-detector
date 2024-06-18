@@ -21,7 +21,7 @@ class LoadCurveDetector(CurveDetector):
         while self.data_list[i][0] < self.endpoint_last_load: # Only keep data, which was sent since the last load ended.
             del self.data_list[0]
             i += 1
-        test_result, self.loads, self.anomalies, self.endpoint_last_load = self.test(self.data_list, self.anomalies, self.loads, self.init_median, self.endpoint_last_load)
+        test_result, self.loads, self.anomalies = self.test(self.data_list, self.anomalies, self.loads, self.init_median)
 
         if test_result=='load_device_anomaly_power_curve':
             return True, self.create_result(f'Bei der letzten Benutzung wurde eine Anomalie im Lastprofil festgestellt.', "", "uncontinious_device_curve")
@@ -32,7 +32,7 @@ class LoadCurveDetector(CurveDetector):
     
     def test(self, data_list, anomalies, loads, init_median):
         output, loads, anomalies, self.endpoint_last_load = load_utils.train_test(data_list, loads, anomalies, init_median)
-        return output,  loads, anomalies, self.endpoint_last_load
+        return output,  loads, anomalies
 
     def create_result(self, message, value, sub_type):
         return {
