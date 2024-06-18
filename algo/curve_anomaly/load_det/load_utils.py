@@ -11,7 +11,7 @@ def save_data(filename_dict, loads, endpoint_last_load):
         with open(endpoint_last_load_path, 'wb') as f:
             pickle.dump(endpoint_last_load, f)
 
-def load_data(filename_dict, loads, endpoint_last_load):
+def load_data(filename_dict):
     loads_path = filename_dict["loads"]
     endpoint_last_load_path = filename_dict["endpoint_last_load"]
 
