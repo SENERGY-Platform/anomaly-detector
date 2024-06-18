@@ -210,6 +210,7 @@ class Operator(OperatorBase):
             util.logger.info(f"Stop Anomaly Detector for device: {device}")
             device_detector.stop()
             util.logger.info("Anomaly Detector stopped")
+        # TODO: thread join for frequency detector
         save(self.config.data_path, "first_data_time.pickle", self.first_data_time)
         save(self.config.data_path, "device_type.pickle", self.device_type)
         save(self.config.data_path, "init_median.pickle", self.init_median)

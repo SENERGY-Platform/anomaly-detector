@@ -87,10 +87,11 @@ class OnlineTrainContCurveDetector(ContCurveDetector):
             util.logger.debug("Wait with training until enough data is collected")
             return False 
 
-        if self.job_id and not self.retrain:
-            return
+        if self.retrain:
+            util.logger.debug("Retrain Period over. Start new training.")
+            return True
 
-        return True 
+        return False
 
     def start_training(self, timestamp):
         topic_name, path_to_time, path_to_value = self._get_input_topic()
@@ -124,7 +125,7 @@ class OnlineTrainContCurveDetector(ContCurveDetector):
                 "time_range_value": "1",
                 "time_range_level": "d"
             },
-            "toolbox_version": "v2.2.68",
+            "toolbox_version": "v2.2.71",
             "ray_image": "ghcr.io/senergy-platform/ray:v0.0.8",
             "ray_version": "2.0.9", # must be the same as in the image
             "cluster": {
