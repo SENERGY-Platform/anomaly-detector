@@ -65,13 +65,13 @@ class CustomConfig(Config):
         if self.init_phase_level == '':
             self.init_phase_level = 'd'
 
-        if self.retrain_interval != '':
-            self.retrain_interval = float(self.retrain_interval)
+        if self.train_interval != '':
+            self.train_interval = float(self.train_interval)
         else:
-            self.retrain_interval = 14
+            self.train_interval = 14
         
-        if self.retrain_level == '':
-            self.retrain_level = 'd'
+        if self.train_level == '':
+            self.train_level = 'd'
         
 class Operator(OperatorBase):
     configType = CustomConfig
