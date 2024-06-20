@@ -1,13 +1,10 @@
 git+https://github.com/SENERGY-Platform/analytics-operator-lib-python@v1.1.18
 toolbox[anomaly_detection] @ git+https://github.com/SENERGY-Platform/timeseries-toolbox@v2.2.74
 
-confluent_kafka<2
 pandas<2
 kazoo<3
 astral
 pytz
-scipy
-scikit-learn
 tqdm
 similaritymeasures
 pyarrow

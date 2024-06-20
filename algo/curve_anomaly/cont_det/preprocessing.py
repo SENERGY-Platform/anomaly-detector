@@ -1,5 +1,4 @@
 import numpy as np
-from scipy.signal import savgol_filter
 
 def normalize_data(data_series, training_max):
     return data_series/training_max
