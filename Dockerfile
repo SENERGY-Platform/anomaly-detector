@@ -1,4 +1,4 @@
-FROM python:3.8
+FROM python:3.9
 LABEL org.opencontainers.image.source https://github.com/SENERGY-Platform/anomaly-detection-platform
 WORKDIR /usr/src/app
 COPY . .
