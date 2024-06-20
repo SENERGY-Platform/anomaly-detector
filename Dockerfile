@@ -1,4 +1,4 @@
-FROM pytorch/pytorch:1.11.0-cuda11.3-cudnn8-runtime
+FROM python:3.8
 LABEL org.opencontainers.image.source https://github.com/SENERGY-Platform/anomaly-detection-platform
 WORKDIR /usr/src/app
 COPY . .
