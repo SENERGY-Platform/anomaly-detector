@@ -117,8 +117,8 @@ class OnlineTrainContCurveDetector(ContCurveDetector):
                 "time_range_value": "1",
                 "time_range_level": "d"
             },
-            "toolbox_version": "v2.2.71",
-            "ray_image": "ghcr.io/senergy-platform/ray:v0.0.8",
+            "toolbox_version": "v2.2.76",
+            "ray_image": "ghcr.io/senergy-platform/ray:v0.0.9",
             "ray_version": "2.0.9", # must be the same as in the image
             "cluster": {
                 "number_workers": 1,
