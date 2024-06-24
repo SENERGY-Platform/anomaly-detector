@@ -34,7 +34,7 @@ class OnlineTrainContCurveDetector(ContCurveDetector):
             data_path,
             ml_trainer_url,
             'mlfit',
-            self.model,
+            self,
             self.last_training_time,
             train_interval,
             train_level,
