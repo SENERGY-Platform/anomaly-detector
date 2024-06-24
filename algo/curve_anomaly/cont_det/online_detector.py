@@ -60,9 +60,8 @@ class OnlineTrainContCurveDetector(ContCurveDetector):
             util.logger.debug("Model is not available. Skip inference")
             return False, ''
 
-        util.logger.debug(f"First Data Point: {self.data_list[0]} - Last Data Point: {self.data_list[-1]}")
-        if self.data_list[-1][0] - self.data_list[0][0] < pd.Timedelta(4, "h"):
-            util.logger.debug("Not enough data for inference. Need at least 4 hours")
+
+        if not self.inference_shall_start():
             return False, ''
 
         anomalies, self.reconstruction_errors = self.test(self.data_list, self.model)
@@ -78,7 +77,14 @@ class OnlineTrainContCurveDetector(ContCurveDetector):
             return True, self.create_result(f'In der Zeit seit {str(time_window_start)} wurde eine Anomalie im Lastprofil festgestellt.', str(time_window_start), "continous_device")
         
         return False, ''
-            
+
+    def inference_shall_start(self):
+        util.logger.debug(f"First Data Point: {self.data_list[0]} - Last Data Point: {self.data_list[-1]}")
+        if self.data_list[-1][0] - self.data_list[0][0] < pd.Timedelta(4, "h"):
+            util.logger.debug("Not enough data for inference. Need at least 4 hours")
+            return False
+        return True
+
     def start_training(self, timestamp):
         topic_name, path_to_time, path_to_value = self._get_input_topic()
         job_request = {
@@ -88,7 +94,7 @@ class OnlineTrainContCurveDetector(ContCurveDetector):
                     "window_length": 205,
                     "batch_size": 1,
                     "lr": 0.0001,
-                    "num_epochs": 20,
+                    "num_epochs": 2, # TODO increase prod
                     "loss": "MSE",
                     "op": "Adam",
                     "latent_dims": 32,
@@ -121,7 +127,6 @@ class OnlineTrainContCurveDetector(ContCurveDetector):
         }
         self.trainer.start_training(job_request)
         self.last_training_time = timestamp
-    
 
     def load_model(self):
         # TODO christoph doch lieber model abspeichern beim stoppen und laden 

@@ -35,19 +35,21 @@ def parse_bool(value):
 
 class CustomConfig(Config):
     data_path = "/opt/data"
-    check_data_anomalies: bool = False
-    check_data_extreme_outlier: bool = True
-    check_data_schema: bool = True
-    check_receive_time_outlier: bool = True
-    check_consumption: bool = False
-    init_phase_length: float = 2
+    check_data_anomalies: bool = False # Detect complex anomalies based on the curve are detected
+    check_data_extreme_outlier: bool = True # Detect extreme point outlier based on simple statistics
+    check_data_schema: bool = True # Detect wrong input
+    check_receive_time_outlier: bool = True # Detect anomalies in the time between inputs
+    check_consumption: bool = False #
+    init_phase_length: float = 2 # How long the complete operator is init phase
     init_phase_level: str = "d"
-    train_interval: float = 14
+    train_interval: float = 14 # How long curve explorere waits until it starts training & optional retraining
     train_level: str = "d"
-    retrain: bool = False
-    ml_trainer_url: str = "http://ml-trainer-svc.trainer:5000"
-    mlflow_url: str = "http://mlflow-svc.mlflow:5000"
-    curve_detector_training_mode: str = "offline"
+    inference_time: float = 1 # How long operator waits until it starts inference. Should match with the model architecture
+    inference_time_level: str = "s"
+    retrain: bool = False # Only train once in the beginning or retrain periodically
+    ml_trainer_url: str = "http://ml-trainer-svc.trainer:5000" # URL to the Trainer API
+    mlflow_url: str = "http://mlflow-svc.mlflow:5000" # URL for MLFlow to download the model
+    curve_detector_training_mode: str = "offline" # Train inside the operator or use the training platform
 
     def __init__(self, d, **kwargs):
         super().__init__(d, **kwargs)

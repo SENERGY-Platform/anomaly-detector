@@ -1,7 +1,7 @@
 git+https://github.com/SENERGY-Platform/analytics-operator-lib-python@v1.1.21
-toolbox[anomaly_detection] @ git+https://github.com/SENERGY-Platform/timeseries-toolbox@v2.2.74
+toolbox[anomaly_detection] @ git+https://github.com/SENERGY-Platform/timeseries-toolbox@v2.2.76
 
-pandas<2
+pandas==2.2.2
 kazoo<3
 astral
 pytz
