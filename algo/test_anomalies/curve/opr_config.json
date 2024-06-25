@@ -1,0 +1,31 @@
+{
+    "config": {
+        "train_interval": "1",
+        "curve_detector_training_mode": "online",
+        "ml_trainer_url": "http://localhost:5001",
+        "mlflow_url": "http://localhost:5000",
+        "data_path": ".",
+        "device_id": "",
+        "device_name": "",
+        "logger_level": "debug",
+        "selectors": [],
+        "check_consumption": "0",
+        "check_data_anomalies": "true",
+        "check_data_extreme_outlier": "false",
+        "check_receive_time_outlier": "false",
+        "init_phase_length": "10",
+        "init_phase_level": "s"
+    },
+    "inputTopics": [{
+        "name": "urn_infai_ses_service_5cc05c60-5916-4b37-8991-53a93c354fe5",
+        "filterType": "DeviceId",
+        "filterValue": "urn:infai:ses:device:501f3ca8-1885-41e9-9327-8fa9c52f9528",
+        "mappings": [{
+            "dest": "value",
+            "source": "value.root.value"
+        }, {
+            "dest": "time",
+            "source": "value.root.lastUpdate"
+        }]
+    }]
+}

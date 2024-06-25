@@ -14,23 +14,14 @@
    limitations under the License.
 """
 
-from algo import util
 import mf_lib
 import logging
 import json
 import queue
+import operator_lib.util as util
 
 logger = logging.getLogger("operator")
 logger.disabled = True
-
-with open("tests/resources/mock_messages.json") as file:
-    mock_messages = json.load(file)
-
-with open("tests/resources/mock_opr_config.json") as file:
-    mock_opr_config = json.load(file)
-
-with open("tests/resources/mock_result.json") as file:
-    mock_result = json.load(file)
 
 
 def init_filter_handler(opr_config, pipeline_id: str):
