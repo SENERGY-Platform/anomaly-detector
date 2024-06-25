@@ -55,7 +55,7 @@ class ContCurveDetector(CurveDetector):
             end = pd.to_datetime('2015-01-03')
             n = 100
             ts = random_dates(start, end, n)
-            data = pd.DataFrame({"value": np.random.rand(n,), "time": ts, "reconstr": np.random.rand(n,)})
+            data = pd.DataFrame({"value": np.random.rand(n,), "reconstr": np.random.rand(n,)}, index=ts)
             return data
         
         def random_dates(start, end, n=10):

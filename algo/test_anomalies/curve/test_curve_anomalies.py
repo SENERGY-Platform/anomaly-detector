@@ -27,3 +27,5 @@ class TestOperator(unittest.TestCase):
             
             while not mock_kafka_consumer.empty():
                 operator._OperatorBase__route()
+
+            
