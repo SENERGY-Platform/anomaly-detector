@@ -1,12 +1,11 @@
 import os 
 
 import operator_lib.util as util
+from operator_lib.util import timestamp_to_str
 
 from algo import curve_anomaly
 from algo import point_outlier
 from algo import consumption_anomaly
-
-
 from algo.frequency_point_outlier import FrequencyDetector
 
 LOG_PREFIX = "DETECTOR"
@@ -110,6 +109,7 @@ class AnomalyDetector():
             if sample_is_anomalous:
                 result['device_id'] = self.device_id
                 result['initial_phase'] = ''
+                result['timestamp'] = timestamp_to_str(timestamp)
                 util.logger.info(f"{LOG_PREFIX}: Anomaly occured: {result}")
                 anomaly_results.append(result) 
         return anomaly_results

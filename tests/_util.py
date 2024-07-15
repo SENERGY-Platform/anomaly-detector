@@ -20,6 +20,7 @@ import json
 import queue
 import operator_lib.util as util
 
+import algo 
 logger = logging.getLogger("operator")
 logger.disabled = True
 
@@ -29,7 +30,7 @@ def init_filter_handler(opr_config, pipeline_id: str):
         opr_config = util.OperatorConfig(opr_config)
     filter_handler = mf_lib.FilterHandler()
     for it in opr_config.inputTopics:
-        filter_handler.add_filter(util.gen_filter(input_topic=it, selectors=opr_config.config.selectors, pipeline_id=pipeline_id))
+        filter_handler.add_filter(util.gen_filter(input_topic=it, pipeline_id=pipeline_id))
     return filter_handler
 
 
@@ -93,3 +94,40 @@ class MockKafkaProducer:
         assert isinstance(value["analytics"], dict)
         assert isinstance(value["time"], str)
         self.__count += 1
+
+class MockKafkaCollectProducer:
+    def __init__(self):
+        self.outputs = []
+
+    def produce(self, topic, value, key):
+        self.outputs.append({
+            'topic': topic,
+            'value': value,
+            'key': key
+        })
+    
+    def get_all_outputs(self):
+        return self.outputs
+
+    def get_last_output(self):
+        return self.outputs[-1]
+
+def setup(opr_config, path_to_expected_input_messages, path_to_expected_output):
+    with open(path_to_expected_input_messages, "r") as msg_file:
+        mock_messages = json.loads(msg_file.read())
+        mock_kafka_consumer = MockKafkaConsumer(mock_messages)
+    
+    mock_kafka_producer = MockKafkaCollectProducer()
+    
+    operator = algo.Operator()
+
+    operator.init(
+            kafka_consumer=mock_kafka_consumer,
+            kafka_producer=mock_kafka_producer,
+            filter_handler=init_filter_handler(opr_config, None),
+            output_topic=None,
+            pipeline_id=None,
+            operator_id=None,
+            config=operator.configType(opr_config['config'])
+    )
+    return mock_kafka_consumer, mock_kafka_producer, operator

@@ -4,6 +4,7 @@ import time
 from algo import utils
 
 import operator_lib.util as util
+from operator_lib.util import timestamp_to_str
 
 # TODO
 # nur sinnvoll bei sensoren die regelmaesig senden
@@ -47,15 +48,12 @@ class FrequencyDetector(threading.Thread, utils.StdPointOutlierDetector):
             waiting_time = self.calculate_time_diff(now, self.last_received_ts)
             util.logger.debug(f"{LOG_PREFIX}: Time since last input {waiting_time}")
             anomaly_occured = False
-            threshold = None
             if self.point_is_anomalous_high(waiting_time):
                 sub_type = "high"
                 anomaly_occured = True
-                threshold = self.get_upper_threshold()
             elif self.point_is_anomalous_low(waiting_time):
                 sub_type = "low"
                 anomaly_occured = True
-                threshold = self.get_lower_threshold()
 
             if anomaly_occured:
                 util.logger.info(f"{LOG_PREFIX}: Anomaly occured: Type=time Sub-Type={sub_type} Value={waiting_time} Mean={self.current_mean} Std={self.current_stddev}")
@@ -63,8 +61,10 @@ class FrequencyDetector(threading.Thread, utils.StdPointOutlierDetector):
                     "type": "time",
                     "sub_type": sub_type,
                     "value": waiting_time,
-                    "threshold": round(threshold, 2),
-                    "mean": round(self.current_mean, 2)
+                    "lower_bound": round(self.get_lower_threshold(), 2),
+                    "upper_bound": round(self.get_upper_threshold(), 2),
+                    "mean": round(self.current_mean, 2),
+                    "timestamp": timestamp_to_str(now)
                 })
             
             time.sleep(5)

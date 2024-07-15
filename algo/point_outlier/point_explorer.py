@@ -17,16 +17,13 @@ class Point_Explorer(utils.StdPointOutlierDetector):
         new_value = float(value)
             
         anomaly_occured = False
-        threshold = None
         if self.point_is_anomalous_high(new_value):
             sub_type = "high"
             anomaly_occured = True
-            threshold = self.get_upper_threshold()
 
         if self.point_is_anomalous_low(new_value):
             sub_type = "low"
             anomaly_occured = True
-            threshold = self.get_lower_threshold()
                 
         if anomaly_occured:
             util.logger.info(f'{LOG_PREFIX}: An extreme point outlier just occured!')
@@ -34,7 +31,8 @@ class Point_Explorer(utils.StdPointOutlierDetector):
                     "type": "extreme_value",
                     "sub_type": sub_type,
                     "value": new_value,
-                    "threshold": round(threshold, 2),
+                    "lower_bound": round(self.get_lower_threshold(), 2),
+                    "upper_bound": round(self.get_upper_threshold(), 2),
                     "mean": round(self.current_mean, 2)
             }
         

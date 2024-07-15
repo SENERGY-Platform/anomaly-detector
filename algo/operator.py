@@ -23,8 +23,9 @@ from algo import utils
 import pandas as pd
 import datetime
 import operator_lib.util as util
-from operator_lib.util import Config, OperatorBase, InitPhase, setup_operator_starttime, todatetime, timestamp_to_str
+from operator_lib.util import Config, OperatorBase, InitPhase, setup_operator_starttime, todatetime
 from operator_lib.util.persistence import save, load
+from operator_lib.util import timestamp_to_str
 
 from algo.detector import AnomalyDetector
 
@@ -74,6 +75,7 @@ class CustomConfig(Config):
         
         if self.train_level == '':
             self.train_level = 'd'
+
         
 class Operator(OperatorBase):
     configType = CustomConfig
@@ -106,6 +108,7 @@ class Operator(OperatorBase):
         self.data_list_for_device_type_check = []
         self.device_type = None # Is either "cont_device" or "load_device"
         self.init_median = None # Median value of init phase. Is used as a threshold for checking if device is on or off.
+        self.debug_msg_counter = 0
 
     def get_device_detectors(self, input_ids):
         device_detector = self.device_detectors.get(input_ids)
@@ -216,4 +219,83 @@ class Operator(OperatorBase):
         save(self.config.data_path, "first_data_time.pickle", self.first_data_time)
         save(self.config.data_path, "device_type.pickle", self.device_type)
         save(self.config.data_path, "init_median.pickle", self.init_median)
+        
+    def create_debug_result(self, device_id, value):
+        # For debugging purposes
+        import numpy as np
+        import pandas as pd 
+        def random_df(start, end):  
+            n = 100
+            ts = random_dates(start, end, n)
+            data = pd.DataFrame({"value": np.random.rand(n,), "reconstr": np.random.rand(n,)}, index=ts)
+            return data.sort_index()
+        
+        def random_dates(start, end, n=10):
+            start_u = start.value//10**9
+            end_u = end.value//10**9
+
+            return pd.to_datetime(np.random.randint(start_u, end_u, n), unit='s')
+
+        def return_curve():
+            end = pd.Timestamp.now()
+            start = end - pd.Timedelta('10s')
+
+            df = random_df(start, end)
+            return {
+                        "type": "curve_anomaly",
+                        "sub_type": "",
+                        "message": "An anomaly occured",
+                        "value": value,
+                        "original_reconstructed_curves": df.reset_index().to_json(orient="values"),
+                        "start_time": timestamp_to_str(start),
+                        "end_time": timestamp_to_str(end),
+                        "device_id": device_id,
+                        "timestamp": timestamp_to_str(pd.Timestamp.now())
+            }
+
+        def return_point():
+            return {
+                        "type": "extreme_value",
+                        "sub_type": "",
+                        "message": "An anomaly occured",
+                        "value": value,
+                        "original_reconstructed_curves": "",
+                        "upper_bound": value-50,
+                        "lower_bound": value+50,
+                        "start_time": "",
+                        "end_time": "",
+                        "device_id": device_id,
+                        "timestamp": timestamp_to_str(pd.Timestamp.now())
+            }
+        
+        def return_freq():
+            return {
+                        "type": "time",
+                        "sub_type": "",
+                        "message": "An anomaly occured",
+                        "value": 10, # 10s
+                        "original_reconstructed_curves": "",
+                        "start_time": "",
+                        "end_time": "",
+                        "device_id": device_id,
+                        "timestamp": timestamp_to_str(pd.Timestamp.now())
+            }
+
+        if self.debug_msg_counter == 0:
+            self.debug_msg_counter += 1
+            return return_point()
+
+        if self.debug_msg_counter == 1:
+            import time 
+            time.sleep(10)
+            self.debug_msg_counter += 1
+            return return_freq()
+
+        if self.debug_msg_counter == 2:
+            import time 
+            time.sleep(30)
+            self.debug_msg_counter += 1
+            return return_curve()
+
+        
         

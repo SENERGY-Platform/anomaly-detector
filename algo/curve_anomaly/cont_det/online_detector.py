@@ -44,8 +44,6 @@ class OnlineTrainContCurveDetector(ContCurveDetector):
         )
 
     def check(self, value, timestamp):
-        return True, self.create_debug_result()
-
         if self.first_data_time == None:
             self.first_data_time = timestamp
             self.last_training_time = self.first_data_time
