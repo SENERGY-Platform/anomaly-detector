@@ -118,6 +118,7 @@ class OnlineTrainContCurveDetector(ContCurveDetector):
             },
             "toolbox_version": "v2.2.76",
             "ray_image": "ghcr.io/senergy-platform/ray:v0.0.9",
+            "user_id": "", # TODO userid is in environment variables, must be set in operator-lib 
             "ray_version": "2.24.0", # must be the same as in the image
             "cluster": {
                 "number_workers": 1,
