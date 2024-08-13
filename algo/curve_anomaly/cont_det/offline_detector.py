@@ -21,7 +21,7 @@ class OfflineTrainContCurveDetector(ContCurveDetector):
             del self.data_list[0]
         use_cuda = torch.cuda.is_available()
         self.last_training_time, self.model, self.training_performance, self.training_max = self.batch_train(self.data_list, self.first_data_time, self.last_training_time, self.model, use_cuda, self.training_performance, self.training_max)
-        test_result, self.loads, self.anomalies, self.reconstruction_errors = self.test(self.data_list, self.first_data_time, self.last_training_time, self.model, use_cuda, self.anomalies, self.reconstruction_errors, self.training_max)
+        test_result, self.anomalies, self.reconstruction_errors = self.test(self.data_list, self.first_data_time, self.last_training_time, self.model, use_cuda, self.anomalies, self.reconstruction_errors, self.training_max)
         if test_result=='cont_device_anomaly':
             time_window_start = (timestamp-pd.Timedelta(1,'hour')).floor('min')
             self.timestamp_last_anomaly, anomaly_during_last_30_min = cont_device.notification_decision(
@@ -30,6 +30,7 @@ class OfflineTrainContCurveDetector(ContCurveDetector):
                 return True, self.create_result(f'In der Zeit seit {str(time_window_start)} wurde eine Anomalie im Lastprofil festgestellt.', str(time_window_start), "continous_device")
             else:
                 return False, ''
+        return False, ''
 
     def batch_train(self, data_list, first_data_time, last_training_time, model, use_cuda, training_performance, training_max):
         current_timestamp = utils.todatetime(data_list[-1][0]).tz_localize(None)
