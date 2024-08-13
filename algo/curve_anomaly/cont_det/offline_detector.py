@@ -30,6 +30,7 @@ class OfflineTrainContCurveDetector(ContCurveDetector):
                 return True, self.create_result(f'In der Zeit seit {str(time_window_start)} wurde eine Anomalie im Lastprofil festgestellt.', str(time_window_start), "continous_device")
             else:
                 return False, ''
+        return False, ''
 
     def batch_train(self, data_list, first_data_time, last_training_time, model, use_cuda, training_performance, training_max):
         current_timestamp = utils.todatetime(data_list[-1][0]).tz_localize(None)
