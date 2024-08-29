@@ -22,7 +22,7 @@ class OfflineTrainContCurveDetector(ContCurveDetector):
         use_cuda = torch.cuda.is_available()
         self.last_training_time, self.model, self.training_performance, self.training_max = self.batch_train(self.data_list, self.first_data_time, self.last_training_time, self.model, use_cuda, self.training_performance, self.training_max)
         if self.last_training_time == utils.todatetime(self.data_list[-1][0]).tz_localize(None):
-            self.reconstruction_errors = cont_device.update_reconstruction_errors_with_new_model(self.model, self.data_list, self.training_max)
+            self.reconstruction_errors = cont_device.update_reconstruction_errors_with_new_model(self.model, self.data_list, use_cuda, self.training_max)
         test_result, self.anomalies, self.reconstruction_errors = self.test(self.data_list, self.first_data_time, self.last_training_time, self.model, use_cuda, self.anomalies, self.reconstruction_errors, self.training_max)
         if test_result=='cont_device_anomaly':
             time_window_start = (timestamp-pd.Timedelta(1,'hour')).floor('min')
