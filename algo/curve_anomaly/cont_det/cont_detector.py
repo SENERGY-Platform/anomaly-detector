@@ -21,7 +21,6 @@ class ContCurveDetector(CurveDetector):
         self.model = None
         self.training_max = None
         self.reconstruction_errors = None
-        self.data_list = []
 
         (self.last_training_time,
          self.training_performance,  
