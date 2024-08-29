@@ -122,7 +122,7 @@ def get_reconstruction_errors(model_input_data_array, model, use_cuda):
             model_output = model(model_input)
         except RuntimeError:
             print("Probably not enough data collected yet!")
-            return None, None
+            return [None], np.empty(0)
         errors.append(abs(model_output.detach().cpu().numpy()-data_series).sum()/205)
     model.train()
     return errors, model_output.detach().cpu().numpy()
