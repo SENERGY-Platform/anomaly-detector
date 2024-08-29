@@ -121,11 +121,24 @@ def get_reconstruction_errors(model_input_data_array, model, use_cuda):
         try:
             model_output = model(model_input)
         except RuntimeError:
-            print("Probably not enough data collected yet!")
             return [None], np.empty(0)
         errors.append(abs(model_output.detach().cpu().numpy()-data_series).sum()/205)
     model.train()
     return errors, model_output.detach().cpu().numpy()
+
+def update_reconstruction_errors_with_new_model(model, data_list, use_cuda, training_max, batch_length_days=50):
+    model.eval()
+    data_series = pd.Series(data=[data_point for _, data_point in data_list], index=[timestamp.replace(microsecond=0) for timestamp, _ in data_list]).sort_index()
+    data_series = data_series[~data_series.index.duplicated(keep='first')]
+    data_series = preprocessing.normalize_data(data_series, training_max)
+    data_series = preprocessing.minute_resampling(data_series)
+    data_series = data_series.loc[data_series.index.max()-pd.Timedelta(batch_length_days,'days'):]
+    data_series_smooth = preprocessing.smooth_data(data_series)
+    model_input_data_array = np.array(data_series_smooth).reshape(1,-1)
+    reconstruction_errors = get_reconstruction_errors(model_input_data_array, model, use_cuda)[0]
+    model.train()
+    print("Reconstruction errors updated with new model!")
+    return reconstruction_errors
 
 def test(data_list, model, use_cuda, anomalies, training_max, reconstruction_errors, model_input_window_length=205):
     model.eval()
@@ -145,7 +158,8 @@ def test(data_list, model, use_cuda, anomalies, training_max, reconstruction_err
         reconstruction_errors = [new_reconstruction_error]
     else:
         reconstruction_errors.append(new_reconstruction_error)
-        print(reconstruction_errors)
+        if len(reconstruction_errors) > 350: # I.e. erros from ~ 50 days.
+            del reconstruction_errors[0]
     anomalous_reconstruction_errors = get_anomalous_indices(reconstruction_errors,0.005)
     
     if len(reconstruction_errors)-1 in anomalous_reconstruction_errors:
