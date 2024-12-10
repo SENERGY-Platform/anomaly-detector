@@ -88,7 +88,10 @@ def train_test(data_list, loads, anomalies, init_median):
     else:
         old_number_of_loads = len(loads)
     loads += extract_loads(data_series, init_median)
-    endpoint_last_load = loads[-1].index[-1]
+    if loads==[]:
+        endpoint_last_load = data_series.index[0]
+    else:
+        endpoint_last_load = loads[-1].index[-1]
     if len(loads) > old_number_of_loads:
         list_of_normalized_loads = [preprocessing.normalize_data(load) for load in loads]
         anomalous_length_indices = find_anomalous_lengths(list_of_normalized_loads)
