@@ -33,7 +33,11 @@ def load_data(filename_dict, data_list, anomalies):
             print("Data buffer could not be loaded! This might be caused by not having any data in the buffer yet.")
 
     if os.path.exists(anomalies_path):
-       with open(anomalies_path, 'rb') as f:
-           anomalies = pickle.load(f)
+        try:
+            with open(anomalies_path, 'rb') as f:
+                anomalies = pickle.load(f)
+        except EOFError:
+            print("Could not load the historic anomalies!")
+        
 
     return data_list, anomalies
