@@ -160,9 +160,11 @@ def test(data_list, model, use_cuda, anomalies, training_max, reconstruction_err
         reconstruction_errors.append(new_reconstruction_error)
         if len(reconstruction_errors) > 350: # I.e. erros from ~ 50 days.
             del reconstruction_errors[0]
-    anomalous_reconstruction_errors = get_anomalous_indices(reconstruction_errors,0.005)
+    array_of_errors = np.array(new_reconstruction_error).reshape(-1,1)
+    array_of_errors = array_of_errors[~np.isnan(array_of_errors)]
+    anomalous_reconstruction_errors = get_anomalous_indices(array_of_errors,0.005)
     
-    if len(reconstruction_errors)-1 in anomalous_reconstruction_errors:
+    if len(array_of_errors)-1 in anomalous_reconstruction_errors and not np.isnan(new_reconstruction_error):
         anomalous_time_window = data_series[-model_input_window_length:]
         anomalous_time_window_smooth = data_series_smooth[-model_input_window_length:]
         anomalies.append((anomalous_time_window,
@@ -183,11 +185,11 @@ def notification_decision(timestamp_last_anomaly, timestamp):
     timestamp_last_anomaly = timestamp
     return timestamp_last_anomaly, anomaly_during_last_30_min
     
-def get_anomalous_indices(list_of_errors,contam):
+def get_anomalous_indices(array_of_errors,contam):
     anomalous_indices = []
-    anomalous_error_model = IsolationForest(contamination=contam).fit(np.array(list_of_errors).reshape(-1,1))
-    predictions = anomalous_error_model.predict(np.array(list_of_errors).reshape(-1,1))
-    for i in range(len(list_of_errors)):
-        if predictions[i]==-1 and list_of_errors[i]>median(list_of_errors):
+    anomalous_error_model = IsolationForest(contamination=contam).fit(array_of_errors)
+    predictions = anomalous_error_model.predict(array_of_errors)
+    for i in range(len(array_of_errors)):
+        if predictions[i]==-1 and array_of_errors[i]>median(array_of_errors):
             anomalous_indices.append(i)
     return anomalous_indices
