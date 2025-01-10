@@ -161,7 +161,7 @@ def test(data_list, model, use_cuda, anomalies, training_max, reconstruction_err
         if len(reconstruction_errors) > 350: # I.e. erros from ~ 50 days.
             del reconstruction_errors[0]
     array_of_errors = np.array(reconstruction_errors).reshape(-1,1)
-    array_of_errors = array_of_errors[~np.isnan(array_of_errors)]
+    array_of_errors = array_of_errors[~np.isnan(array_of_errors)].reshape(-1,1)
     anomalous_reconstruction_errors = get_anomalous_indices(array_of_errors,0.005)
     
     if len(array_of_errors)-1 in anomalous_reconstruction_errors and not np.isnan(new_reconstruction_error):
