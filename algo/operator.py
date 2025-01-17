@@ -171,7 +171,7 @@ class Operator(OperatorBase):
             self.first_data_time = timestamp
             self.init_phase_handler = InitPhase(self.config.data_path, self.init_phase_duration, self.first_data_time, self.produce)
 
-        util.logger.debug(f'{LOG_PREFIX}: Device: {device_id} Input time: {str(data["time"])} Value: {str(data["value"])}')
+        util.logger.debug(f'{LOG_PREFIX}: Device: {input_id} Input time: {str(data["time"])} Value: {str(data["value"])}')
         
         operator_is_init = self.init_phase_handler.operator_is_in_init_phase(timestamp)
         device_detector = self.get_device_detectors(input_id)
