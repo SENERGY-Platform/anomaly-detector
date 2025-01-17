@@ -108,7 +108,7 @@ def train_test(data_list, loads, anomalies, init_median):
             util.logger.debug('A load with an anomalous power curve just ended!')
             return 'load_device_anomaly_power_curve', loads, anomalies, endpoint_last_load
         return None, loads, anomalies, endpoint_last_load
-    return None, loads, anomalies, endpoint_last_load, endpoint_last_load
+    return None, loads, anomalies, endpoint_last_load
     
 
     
