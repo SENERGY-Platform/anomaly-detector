@@ -91,8 +91,8 @@ class Operator(OperatorBase):
         self.init_phase_duration = pd.Timedelta(self.config.init_phase_length, self.config.init_phase_level)
         self.operator_start_time = pd.Timestamp(setup_operator_starttime(self.config.data_path)).tz_localize(None)
         self.first_data_time =  load(self.config.data_path, "first_data_time.pickle")
-        self.device_type = load(self.config.data_path, "device_type.pickle")
-        self.init_median = load(self.config.data_path, "init_median.pickle")
+        self.device_types = load(self.config.data_path, "device_types.pickle")
+        self.init_medians = load(self.config.data_path, "init_medians.pickle")
               
         self.init_phase_handler = InitPhase(self.config.data_path, self.init_phase_duration, self.first_data_time, self.produce)
         value = {
@@ -105,15 +105,17 @@ class Operator(OperatorBase):
         self.init_phase_handler.send_first_init_msg(value)    
 
         self.device_detectors = {} 
-        self.data_list_for_device_type_check = []
-        self.device_type = None # Is either "cont_device" or "load_device"
-        self.init_median = None # Median value of init phase. Is used as a threshold for checking if device is on or off.
+        self.data_lists_for_device_type_check = {}
+        self.device_types = {}
+        self.init_medians = {}
         self.debug_msg_counter = 0
 
     def get_device_detectors(self, input_ids):
         device_detector = self.device_detectors.get(input_ids)
         if device_detector:
             return device_detector
+        device_type = self.device_types.get(input_ids)
+        init_median = self.init_medians.get(input_ids)
         
         device_detector = AnomalyDetector(
             input_ids,
@@ -122,10 +124,10 @@ class Operator(OperatorBase):
             self.config.check_data_anomalies,
             self.config.check_data_extreme_outlier,
             self.config.check_consumption,
-            self.config.data_path,
+            self.config.data_path, # TODO: An der Stelle sollte man den data_path noch mit der input_id joinen. Sonst werden die Detektoren unterschiedlicher ids überschrieben.
             self.produce,
-            self.device_type,
-            self.init_median,
+            device_type,
+            init_median,
             self.first_data_time,
             self.config.ml_trainer_url,
             self.config.mlflow_url,
@@ -142,8 +144,17 @@ class Operator(OperatorBase):
     def input_is_real_time(self, timestamp):
         return timestamp >= self.operator_start_time
     
-    def get_device_type(self):# entries in data_list are of the form (timestamp, data point)
-        data_series = pd.Series(data=[data_point for _, data_point in self.data_list_for_device_type_check], index=[timestamp for timestamp, _ in self.data_list_for_device_type_check]).sort_index()
+    def get_data_list_for_device_type_check(self, input_id):
+        data_list_for_device_type_check = self.data_lists_for_device_type_check.get(input_id) # Note: Right handside is plural!
+        if data_list_for_device_type_check:
+            return data_list_for_device_type_check
+        data_list_for_device_type_check = []
+        self.data_lists_for_device_type_check[input_id] = data_list_for_device_type_check
+        return data_list_for_device_type_check
+    
+    def get_device_type(self, input_id):# entries in data_list are of the form (timestamp, data point)
+        data_list_for_device_type_check = self.get_data_list_for_device_type_check(input_id)
+        data_series = pd.Series(data=[data_point for _, data_point in data_list_for_device_type_check], index=[timestamp for timestamp, _ in data_list_for_device_type_check]).sort_index()
         data_series = data_series[~data_series.index.duplicated(keep='first')]
         device_type = 'cont_device'
         for timestamp_1 in data_series.index:
@@ -195,16 +206,17 @@ class Operator(OperatorBase):
             "mean": 0
         }
         if operator_is_init:
-            self.data_list_for_device_type_check.append((timestamp, value))
+            data_list_for_device_type_check = self.get_data_list_for_device_type_check(input_id)
+            data_list_for_device_type_check.append((timestamp, value))
             return self.init_phase_handler.generate_init_msg(timestamp, init_value)
 
         if self.init_phase_handler.init_phase_needs_to_be_reset():
             return self.init_phase_handler.reset_init_phase(init_value)
 
-        if not self.device_type:
-            self.device_type, self.init_median = self.get_device_type()
-            self.device_detectors[input_id].update_device_type(self.device_type)
-            self.device_detectors[input_id].update_init_median(self.init_median)
+        if not self.device_types.get(input_id):
+            device_type, init_median = self.get_device_type(input_id)
+            self.device_detectors[input_id].update_device_type(device_type)
+            self.device_detectors[input_id].update_init_median(init_median)
         
         if anomalies_found and not operator_is_init:
             return anomalies_found
@@ -217,8 +229,9 @@ class Operator(OperatorBase):
             util.logger.info("Anomaly Detector stopped")
         # TODO: thread join for frequency detector
         save(self.config.data_path, "first_data_time.pickle", self.first_data_time)
-        save(self.config.data_path, "device_type.pickle", self.device_type)
-        save(self.config.data_path, "init_median.pickle", self.init_median)
+        save(self.config.data_path, "device_types.pickle", self.device_types)
+        save(self.config.data_path, "init_medians.pickle", self.init_medians)
+
         
     def create_debug_result(self, device_id, value):
         # For debugging purposes
