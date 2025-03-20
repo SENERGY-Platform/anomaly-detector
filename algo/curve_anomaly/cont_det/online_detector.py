@@ -112,7 +112,7 @@ class OnlineTrainContCurveDetector(ContCurveDetector):
                 "filterType": "device_id",
                 "filterValue": self.device_id,
                 "ksql_url": "http://ksql.kafka-sql:8088",
-                "timestamp_format": "yyyy-MM-ddTHH:mm:ss+01:00", #unix
+                "timestamp_format": "yyyy-MM-ddTHH:mm:ssxxx", #unix
                 "time_range_value": "1",
                 "time_range_level": "d"
             },
