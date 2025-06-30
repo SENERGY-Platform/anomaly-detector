@@ -96,7 +96,6 @@ class Operator(OperatorBase):
               
         self.init_phase_handler = InitPhase(self.config.data_path, self.init_phase_duration, self.first_data_time, self.produce)
         value = {
-            "type": False,
             "sub_type": "",
             "value": "",
             "threshold": 0,
@@ -199,7 +198,6 @@ class Operator(OperatorBase):
         device_detector.update(value, timestamp_without_tz, self.input_is_real_time(timestamp))
         
         init_value = {
-            "type": False,
             "sub_type": "",
             "value": "",
             "threshold": 0,
