@@ -83,10 +83,10 @@ class StdPointOutlierDetector():
         return point < self.get_lower_threshold()
 
     def get_upper_threshold(self):
-        return self.current_mean + 30*self.current_stddev
+        return self.current_mean + 5*self.current_stddev
 
     def get_lower_threshold(self):
-        return self.current_mean - 30*self.current_stddev
+        return self.current_mean - 5*self.current_stddev
 
     def update(self, point):
         self.current_stddev = self.calculate_std(point, self.current_stddev, self.current_mean, self.num_datepoints)
