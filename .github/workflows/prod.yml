@@ -3,7 +3,7 @@ name: 'PROD build'
 on:
   push:
     branches:
-      - anomaly-detection-platform
+      - main
   workflow_dispatch:
 
 jobs:
