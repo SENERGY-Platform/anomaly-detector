@@ -1,0 +1,41 @@
+{
+    "config": {
+        "curve_detector_training_mode": "offline",
+        "ml_trainer_url": "http://localhost:5001",
+        "mlflow_url": "http://localhost:5000",
+        "data_path": ".",
+        "device_id": "",
+        "device_name": "",
+        "logger_level": "debug",
+        "selectors": [],
+        "check_consumption": "false",
+        "check_data_anomalies": "true",
+        "check_data_extreme_outlier": "false",
+        "check_receive_time_outlier": "false",
+        "check_data_schema": "false",
+        "init_phase_length": "10",
+        "init_phase_level": "s",
+        "train_interval": 1,
+        "train_level": "d",
+        "inference_time": 1,
+        "inference_time_level": "d",
+        "retrain": "false"
+    },
+    "inputTopics": [
+        {
+          "name": "service_1",
+          "filterType": "DeviceId",
+          "filterValue": "device:1",
+          "mappings": [
+            {
+              "dest": "value",
+              "source": "data.val_a"
+            },
+            {
+              "dest": "time",
+              "source": "data.time"
+            }
+          ]
+        }
+    ]
+}

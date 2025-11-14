@@ -1,0 +1,26 @@
+[
+  {
+    "device_id": "device:1",
+    "service_id": "service:1",
+    "data": {
+        "val_a": 1,
+        "time": "2022-04-01T07:00:00.030Z"
+      }
+  },
+  {
+    "device_id": "device:1",
+    "service_id": "service:1",
+    "data": {
+        "val_a": 1,
+        "time": "2022-04-01T08:00:00.030Z"
+      }
+  },
+  {
+    "device_id": "device:1",
+    "service_id": "service:1",
+    "data": {
+        "val_a": 100,
+        "time": "2022-04-01T09:00:00.030Z"
+      }
+  }
+]

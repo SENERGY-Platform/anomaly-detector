@@ -16,172 +16,297 @@
 
 __all__ = ("Operator", )
 
-import util
-import torch
-import pandas as pd
 import os
-import pickle
-import pyarrow
-from . import anom_detector, cont_device, load_device
+import json 
 
+from algo import utils
+import pandas as pd
+import datetime
+import operator_lib.util as util
+from operator_lib.util import Config, OperatorBase, InitPhase, setup_operator_starttime, todatetime
+from operator_lib.util.persistence import save, load
+from operator_lib.util import timestamp_to_str
 
-class Operator(util.OperatorBase):
-    def __init__(self, device_id, data_path, device_name='Gerät'):
-        if not os.path.exists(data_path):
-            os.mkdir(data_path)
+from algo.detector import AnomalyDetector
 
-        self.device_id = device_id
+LOG_PREFIX = "MAIN"
 
-        self.device_name = device_name
+def parse_bool(value):
+    return (value == "True" or value == "true" or value == "1")
 
-        self.timestamp_last_anomaly = pd.Timestamp.min
-        self.timestamp_last_notification = pd.Timestamp.min
+class CustomConfig(Config):
+    data_path = "/opt/data"
+    check_data_anomalies: bool = False # Detect complex anomalies based on the curve are detected
+    check_data_extreme_outlier: bool = True # Detect extreme point outlier based on simple statistics
+    check_data_schema: bool = True # Detect wrong input
+    check_receive_time_outlier: bool = True # Detect anomalies in the time between inputs
+    check_consumption: bool = False #
+    init_phase_length: float = 2 # How long the complete operator is init phase
+    init_phase_level: str = "d"
+    train_interval: float = 14 # How long curve explorere waits until it starts training & optional retraining
+    train_level: str = "d"
+    inference_time: float = 1 # How long operator waits until it starts inference. Should match with the model architecture
+    inference_time_level: str = "s"
+    retrain: bool = False # Only train once in the beginning or retrain periodically
+    ml_trainer_url: str = "http://ml-trainer-svc.trainer:5000" # URL to the Trainer API
+    mlflow_url: str = "http://mlflow-svc.mlflow:5000" # URL for MLFlow to download the model
+    curve_detector_training_mode: str = "offline" # Train inside the operator or use the training platform
 
+    def __init__(self, d, **kwargs):
+        super().__init__(d, **kwargs)
+        self.check_data_anomalies = parse_bool(self.check_data_anomalies)
+        self.check_data_extreme_outlier = parse_bool(self.check_data_extreme_outlier)
+        self.check_data_schema = parse_bool(self.check_data_schema)
+        self.check_receive_time_outlier = parse_bool(self.check_receive_time_outlier)
+        self.retrain = parse_bool(self.retrain)
 
-        self.model_file_path = f'{data_path}/{self.device_id}_model.pt'
-        self.anomaly_detector_data_path = f'{data_path}/{self.device_id}_anomaly_detector_data.parquet'
-        self.anomaly_detector_initial_time_path = f'{data_path}/{self.device_id}_anomaly_detector_initial_time.pickle'
-        self.anomaly_detector_first_data_time_path = f'{data_path}/{self.device_id}_anomaly_detector_first_data_time.pickle'
-        self.anomaly_detector_last_training_time_path = f'{data_path}/{self.device_id}_anomaly_detector_last_training_time.pickle'
-        self.anomaly_detector_device_id_path = f'{data_path}/{self.device_id}_anomaly_detector_device_id.pickle'
-        self.anomaly_detector_device_type_path = f'{data_path}/{self.device_id}_anomaly_detector_device_type.pickle'
-        self.anomaly_detector_anomalies_path = f'{data_path}/{self.device_id}_anomaly_detector_anomalies.pickle'
-        self.anomaly_detector_training_performance_path = f'{data_path}/{self.device_id}_anomaly_detector_training_performance.pickle'
-        self.anomaly_detector_loads_path = f'{data_path}/{self.device_id}_anomaly_detector_loads.pickle'
-
-        self.anomaly_detector = anom_detector.Anomaly_Detector(device_id)
-
-        '''if os.path.exists(self.anomaly_detector_data_path):
-            df = pd.read_parquet(self.anomaly_detector_data_path)
-            df.index = pd.to_datetime(df.index)
-            data_series = pd.Series(data=df['power_values'], index=df.index)
-            data_series = df[~df.index.duplicated(keep='first')]
-            for i in range(len(data_series.index)):
-                self.anomaly_detector.data.append([self.todatetime(data_series.index[i]), float(data_series.iloc[i])])
-            print(len(data_series.index))
-            print('Old data loaded.')
-        
-
-        if os.path.exists(self.anomaly_detector_device_type_path):
-            with open(self.anomaly_detector_device_type_path, 'rb') as f:
-                self.anomaly_detector.device_type = pickle.load(f)
-            print(self.anomaly_detector.device_type)
-            if self.anomaly_detector.device_type == 'cont_device':
-                if os.path.exists(self.model_file_path):
-                    self.anomaly_detector.model = cont_device.Autoencoder(32)
-                    self.anomaly_detector.model.load_state_dict(torch.load(self.model_file_path))
-                    print('Pretrained model loaded!')
-            elif self.anomaly_detector.device_type == 'load_device':
-                if os.path.exists(self.anomaly_detector_loads_path):
-                    with open(self.anomaly_detector_loads_path, 'rb') as f:
-                        self.anomaly_detector.loads = pickle.load(f)
-                    print('List of loads from the past loaded!')'''
-                    
-
-    def todatetime(self, timestamp):
-        if str(timestamp).isdigit():
-            if len(str(timestamp))==13:
-                return pd.to_datetime(int(timestamp), unit='ms')
-            elif len(str(timestamp))==19:
-                return pd.to_datetime(int(timestamp), unit='ns')
+        if self.init_phase_length != '':
+            self.init_phase_length = float(self.init_phase_length)
         else:
-            return pd.to_datetime(timestamp)
+            self.init_phase_length = 2
+        
+        if self.init_phase_level == '':
+            self.init_phase_level = 'd'
+
+        if self.train_interval != '':
+            self.train_interval = float(self.train_interval)
+        else:
+            self.train_interval = 14
+        
+        if self.train_level == '':
+            self.train_level = 'd'
+
+        
+class Operator(OperatorBase):
+    configType = CustomConfig
     
-    def get_device_type(self,data_list):# entries in data_list are of the form (timestamp, data point)
-        data_series = pd.Series(data=[data_point for _, data_point in data_list], index=[timestamp for timestamp, _ in data_list]).sort_index()
+    def init(self, *args, **kwargs):
+        super().init(*args, **kwargs)
+
+        if not os.path.exists(self.config.data_path):
+            os.mkdir(self.config.data_path)
+
+        #self.produce = lambda x: print(x)  uncomment for local testing to not pollute kafka topics when portforwarding to cluster is used
+
+        self.init_phase_duration = pd.Timedelta(self.config.init_phase_length, self.config.init_phase_level)
+        self.operator_start_time = pd.Timestamp(setup_operator_starttime(self.config.data_path)).tz_localize(None)
+        self.first_data_time =  load(self.config.data_path, "first_data_time.pickle")
+        self.device_types = load(self.config.data_path, "device_types.pickle")
+        self.init_medians = load(self.config.data_path, "init_medians.pickle")
+              
+        self.init_phase_handler = InitPhase(self.config.data_path, self.init_phase_duration, self.first_data_time, self.produce)
+        value = {
+            "sub_type": "",
+            "value": "",
+            "threshold": 0,
+            "mean": 0
+        }
+        self.init_phase_handler.send_first_init_msg(value)    
+
+        self.device_detectors = {} 
+        self.data_lists_for_device_type_check = {}
+        self.device_types = {}
+        self.init_medians = {}
+        self.debug_msg_counter = 0
+
+    def get_device_detectors(self, input_ids):
+        device_detector = self.device_detectors.get(input_ids)
+        if device_detector:
+            return device_detector
+        device_type = self.device_types.get(input_ids)
+        init_median = self.init_medians.get(input_ids)
+        
+        device_detector = AnomalyDetector(
+            input_ids,
+            self.config.check_receive_time_outlier,
+            self.config.check_data_schema,
+            self.config.check_data_anomalies,
+            self.config.check_data_extreme_outlier,
+            self.config.check_consumption,
+            self.config.data_path, # TODO: An der Stelle sollte man den data_path noch mit der input_id joinen. Sonst werden die Detektoren unterschiedlicher ids überschrieben.
+            self.produce,
+            device_type,
+            init_median,
+            self.first_data_time,
+            self.config.ml_trainer_url,
+            self.config.mlflow_url,
+            self.config.curve_detector_training_mode,
+            self.get_operator_id(),
+            self.get_pipeline_id(),
+            self.config.train_level,
+            self.config.train_interval,
+            self.config.retrain
+        )
+        self.device_detectors[input_ids] = device_detector
+        return device_detector
+
+    def input_is_real_time(self, timestamp):
+        return timestamp >= self.operator_start_time
+    
+    def get_data_list_for_device_type_check(self, input_id):
+        data_list_for_device_type_check = self.data_lists_for_device_type_check.get(input_id) # Note: Right handside is plural!
+        if data_list_for_device_type_check:
+            return data_list_for_device_type_check
+        data_list_for_device_type_check = []
+        self.data_lists_for_device_type_check[input_id] = data_list_for_device_type_check
+        return data_list_for_device_type_check
+    
+    def get_device_type(self, input_id):# entries in data_list are of the form (timestamp, data point)
+        data_list_for_device_type_check = self.get_data_list_for_device_type_check(input_id)
+        data_series = pd.Series(data=[data_point for _, data_point in data_list_for_device_type_check], index=[timestamp for timestamp, _ in data_list_for_device_type_check]).sort_index()
         data_series = data_series[~data_series.index.duplicated(keep='first')]
         device_type = 'cont_device'
         for timestamp_1 in data_series.index:
             constantly_zero = True
             if timestamp_1 + pd.Timedelta(2,'hours') < data_series.index.max():
                 for timestamp_2 in data_series.loc[timestamp_1:timestamp_1+pd.Timedelta(2,'hours')].index:
-                    if data_series.loc[timestamp_2] > 5:
+                    if data_series.loc[timestamp_2] > 20: # 20 Watt is a typical bound from above for power demand in standy mode of houshold electricity devices.
                         constantly_zero = False
                         break
                 if constantly_zero == True:
                     device_type = 'load_device'
                     break    
-        return device_type
+        return device_type, data_series.median()
+
+    def run(self, data, selector='energy_func', device_id=''):
+        original_input_ids = data.get('original_input_ids')
+
+        input_id = device_id or original_input_ids
+
+        # These operators will also run when historic data is consumed and the init phase is completed based on historic timestamps 
+        timestamp = todatetime(data['time']).tz_localize(None)
+        value = float(data['value'])
+
+        if not self.first_data_time:
+            self.first_data_time = timestamp
+            self.init_phase_handler = InitPhase(self.config.data_path, self.init_phase_duration, self.first_data_time, self.produce)
+
+        util.logger.debug(f'{LOG_PREFIX}: Device: {input_id} Input time: {str(data["time"])} Value: {str(data["value"])}')
         
-    def batch_train(self, data, use_cuda):
-        if self.todatetime(data['energy_time']).tz_localize(None)-self.anomaly_detector.last_training_time >= pd.Timedelta(14, 'days'): 
-            if self.anomaly_detector.device_type == 'cont_device':
-                if self.anomaly_detector.last_training_time == self.anomaly_detector.first_data_time:
-                    self.anomaly_detector.model = cont_device.Autoencoder(32)
-                    if use_cuda:
-                        self.anomaly_detector.model = self.anomaly_detector.model.cuda()
-                self.anomaly_detector.model = cont_device.batch_train(self.anomaly_detector, self.model_file_path, use_cuda)
-            elif self.anomaly_detector.device_type == 'load_device':
-                pass # training IsolationForest is that fast, that we can train it again with every new data point.
-            self.anomaly_detector.last_training_time = self.todatetime(data['energy_time']).tz_localize(None)
-        elif self.todatetime(data['energy_time']).tz_localize(None)-self.anomaly_detector.last_training_time < pd.Timedelta(14, 'days'):
-            pass
+        operator_is_init = self.init_phase_handler.operator_is_in_init_phase(timestamp)
+        device_detector = self.get_device_detectors(input_id)
+        anomalies_found = None
+        timestamp_without_tz = timestamp.tz_localize(None)
+        if self.input_is_real_time(timestamp):
+            device_detector.start_freq_loop()
 
-    def test(self, use_cuda):
-        if self.anomaly_detector.device_type == 'cont_device' and self.anomaly_detector.last_training_time > self.anomaly_detector.first_data_time:
-            output = cont_device.test(self.anomaly_detector.data, self.anomaly_detector, use_cuda)
-            return output
-        elif self.anomaly_detector.device_type == 'load_device':
-            output = load_device.train_test(self.anomaly_detector, self.model_file_path)
-            return output
-        else:
-            return 
+        util.logger.debug(f"{LOG_PREFIX}: Check input for anomalies")
+        anomalies_found = device_detector.check_input(value, timestamp_without_tz)
+        util.logger.debug(f"{LOG_PREFIX}: Found Anomalies: {anomalies_found}")
+            
+        util.logger.debug(f"{LOG_PREFIX}: Register new input at detectors")
+        device_detector.update(value, timestamp_without_tz, self.input_is_real_time(timestamp))
+        
+        init_value = {
+            "sub_type": "",
+            "value": "",
+            "threshold": 0,
+            "mean": 0
+        }
+        if operator_is_init:
+            data_list_for_device_type_check = self.get_data_list_for_device_type_check(input_id)
+            data_list_for_device_type_check.append((timestamp, value))
+            return self.init_phase_handler.generate_init_msg(timestamp, init_value)
 
-    def save_data(self):
-        data_list = self.anomaly_detector.data
-        data_series = pd.Series(data=[data_point for _, data_point in data_list], index=[timestamp.replace(microsecond=0).strftime('%Y-%m-%d %X') for timestamp, _ in data_list]).sort_index()
-        data_series = data_series[~data_series.index.duplicated(keep='first')]
-        df = data_series.to_frame()
-        df.columns = ['power_values']
-        df.to_parquet(self.anomaly_detector_data_path)
-        with open(self.anomaly_detector_initial_time_path, 'wb') as f:
-            pickle.dump(self.anomaly_detector.initial_time, f)
-        with open(self.anomaly_detector_first_data_time_path, 'wb') as f:
-            pickle.dump(self.anomaly_detector.first_data_time, f)
-        with open(self.anomaly_detector_last_training_time_path, 'wb') as f:
-            pickle.dump(self.anomaly_detector.last_training_time, f)
-        with open(self.anomaly_detector_device_id_path, 'wb') as f:
-            pickle.dump(self.anomaly_detector.device_id, f)
-        with open(self.anomaly_detector_device_type_path, 'wb') as f:
-            pickle.dump(self.anomaly_detector.device_type, f)
-        with open(self.anomaly_detector_anomalies_path, 'wb') as f:
-            pickle.dump(self.anomaly_detector.anomalies, f)
-        with open(self.anomaly_detector_training_performance_path, 'wb') as f:
-            pickle.dump(self.anomaly_detector.training_performance, f)
-        with open(self.anomaly_detector_loads_path, 'wb') as f:
-            pickle.dump(self.anomaly_detector.loads, f)
-    
-    def run(self, data, selector='energy_func'):
-        timestamp = self.todatetime(data['energy_time']).tz_localize(None)
-        if self.anomaly_detector.initial_time-timestamp > pd.Timedelta(250,'days'):
-            return
-        print('energy: '+str(data['energy'])+'  '+'time: '+str(timestamp))
-        if self.anomaly_detector.first_data_time == None:
-            self.anomaly_detector.first_data_time = timestamp
-            self.anomaly_detector.last_training_time = self.anomaly_detector.first_data_time
-            self.anomaly_detector.data.append([timestamp, float(data['energy'])])
-            return
-        if self.anomaly_detector.device_type == None:
-            if timestamp-self.anomaly_detector.first_data_time < pd.Timedelta(1, 'days'):
-                self.anomaly_detector.data.append([timestamp, float(data['energy'])])
-                return
-            elif timestamp-self.anomaly_detector.first_data_time >= pd.Timedelta(1, 'days'):
-                self.anomaly_detector.device_type = self.get_device_type(self.anomaly_detector.data)
-                print(self.anomaly_detector.device_type)
-        self.anomaly_detector.data.append([timestamp, float(data['energy'])])
-        use_cuda = torch.cuda.is_available()
-        self.batch_train(data, use_cuda)
-        test_result = self.test(use_cuda)
-        self.save_data()
-        if test_result=='cont_device_anomaly':
-            time_window_start = (timestamp-pd.Timedelta(1,'hour')).floor('min')
-            self.timestamp_last_anomaly, self.timestamp_last_notification, notification_now = cont_device.notification_decision(
-                                                                       self.timestamp_last_anomaly, self.timestamp_last_notification, timestamp)
-            if notification_now:
-                return {'anomaly': f'In der Zeit seit {str(time_window_start)} wurde eine Anomalie im Lastprofil festgestellt.'}
-            else:
-                return
-        elif test_result=='load_device_anomaly_power_curve':
-            return {'anomaly':f'Bei der letzten Benutzung wurde eine Anomalie im Lastprofil festgestellt.'}
-        elif test_result=='load_device_anomaly_length':
-            return {'anomaly':f'Bei der letzten Benutzung wurde eine ungewöhnliche Laufdauer festgestellt.'}
+        if self.init_phase_handler.init_phase_needs_to_be_reset():
+            return self.init_phase_handler.reset_init_phase(init_value)
+
+        if not self.device_types.get(input_id):
+            device_type, init_median = self.get_device_type(input_id)
+            self.device_detectors[input_id].update_device_type(device_type)
+            self.device_detectors[input_id].update_init_median(init_median)
+        
+        if anomalies_found and not operator_is_init:
+            return anomalies_found
+ 
+    def stop(self):
+        super().stop()
+        for device, device_detector in self.device_detectors.items():
+            util.logger.info(f"Stop Anomaly Detector for device: {device}")
+            device_detector.stop()
+            util.logger.info("Anomaly Detector stopped")
+        # TODO: thread join for frequency detector
+        save(self.config.data_path, "first_data_time.pickle", self.first_data_time)
+        save(self.config.data_path, "device_types.pickle", self.device_types)
+        save(self.config.data_path, "init_medians.pickle", self.init_medians)
+
+        
+    def create_debug_result(self, device_id, value):
+        # For debugging purposes
+        import numpy as np
+        import pandas as pd 
+        def random_df(start, end):  
+            n = 100
+            ts = random_dates(start, end, n)
+            data = pd.DataFrame({"value": np.random.rand(n,), "reconstr": np.random.rand(n,)}, index=ts)
+            return data.sort_index()
+        
+        def random_dates(start, end, n=10):
+            start_u = start.value//10**9
+            end_u = end.value//10**9
+
+            return pd.to_datetime(np.random.randint(start_u, end_u, n), unit='s')
+
+        def return_curve():
+            end = pd.Timestamp.now()
+            start = end - pd.Timedelta('10s')
+
+            df = random_df(start, end)
+            return {
+                        "type": "curve_anomaly",
+                        "sub_type": "",
+                        "message": "An anomaly occured",
+                        "value": value,
+                        "original_reconstructed_curves": df.reset_index().to_json(orient="values"),
+                        "start_time": timestamp_to_str(start),
+                        "end_time": timestamp_to_str(end),
+                        "device_id": device_id,
+                        "timestamp": timestamp_to_str(pd.Timestamp.now())
+            }
+
+        def return_point():
+            return {
+                        "type": "extreme_value",
+                        "sub_type": "",
+                        "message": "An anomaly occured",
+                        "value": value,
+                        "original_reconstructed_curves": "",
+                        "upper_bound": value-50,
+                        "lower_bound": value+50,
+                        "start_time": "",
+                        "end_time": "",
+                        "device_id": device_id,
+                        "timestamp": timestamp_to_str(pd.Timestamp.now())
+            }
+        
+        def return_freq():
+            return {
+                        "type": "time",
+                        "sub_type": "",
+                        "message": "An anomaly occured",
+                        "value": 10, # 10s
+                        "original_reconstructed_curves": "",
+                        "start_time": "",
+                        "end_time": "",
+                        "device_id": device_id,
+                        "timestamp": timestamp_to_str(pd.Timestamp.now())
+            }
+
+        if self.debug_msg_counter == 0:
+            self.debug_msg_counter += 1
+            return return_point()
+
+        if self.debug_msg_counter == 1:
+            import time 
+            time.sleep(10)
+            self.debug_msg_counter += 1
+            return return_freq()
+
+        if self.debug_msg_counter == 2:
+            import time 
+            time.sleep(30)
+            self.debug_msg_counter += 1
+            return return_curve()
+
+        
+        
