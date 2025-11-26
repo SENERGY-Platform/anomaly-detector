@@ -27,6 +27,8 @@ from operator_lib.util import Config, OperatorBase, InitPhase, setup_operator_st
 from operator_lib.util.persistence import save, load
 from operator_lib.util import timestamp_to_str
 
+import typing
+
 from algo.detector import AnomalyDetector
 
 LOG_PREFIX = "MAIN"
@@ -168,20 +170,21 @@ class Operator(OperatorBase):
                     break    
         return device_type, data_series.median()
 
-    def run(self, data, selector='energy_func', device_id=''):
+    def run(self, data: typing.Dict[str, typing.Any], selector: str, device_id, timestamp: datetime.datetime):
         original_input_ids = data.get('original_input_ids')
 
         input_id = device_id or original_input_ids
 
-        # These operators will also run when historic data is consumed and the init phase is completed based on historic timestamps 
-        timestamp = todatetime(data['time']).tz_localize(None)
+        # These operators will also run when historic data is consumed and the init phase is completed based on historic timestamps
+        # Convert to german time and then forget the timezone.
+        timestamp = pd.Timestamp(timestamp).tz_localize("Zulu").tz_convert("Europe/Berlin").tz_localize(None)
         value = float(data['value'])
 
         if not self.first_data_time:
             self.first_data_time = timestamp
             self.init_phase_handler = InitPhase(self.config.data_path, self.init_phase_duration, self.first_data_time, self.produce)
 
-        util.logger.debug(f'{LOG_PREFIX}: Device: {input_id} Input time: {str(data["time"])} Value: {str(data["value"])}')
+        util.logger.debug(f'{LOG_PREFIX}: Device: {input_id} Input time: {str(timestamp)} Value: {str(data["value"])}')
         
         operator_is_init = self.init_phase_handler.operator_is_in_init_phase(timestamp)
         device_detector = self.get_device_detectors(input_id)
