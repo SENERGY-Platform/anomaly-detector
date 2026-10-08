@@ -177,7 +177,7 @@ class Operator(OperatorBase):
 
         # These operators will also run when historic data is consumed and the init phase is completed based on historic timestamps
         # Convert to german time and then forget the timezone.
-        timestamp = pd.Timestamp(timestamp).tz_localize("Zulu").tz_convert("Europe/Berlin").tz_localize(None)
+        timestamp = pd.Timestamp(timestamp).tz_convert("Europe/Berlin").tz_localize(None)
         value = float(data['value'])
 
         if not self.first_data_time:
