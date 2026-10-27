@@ -1,0 +1,76 @@
+{
+  "inputs": [
+    {
+      "name": "value",
+      "type": "float"
+    },
+    {
+      "name": "original_input_ids",
+      "type": "string"
+    }
+  ],
+  "outputs": [
+    {
+      "name": "type",
+      "type": "string"
+    },
+    {
+      "name": "sub_type",
+      "type": "string"
+    },
+    {
+      "name": "value",
+      "type": "string"
+    },
+    {
+      "name": "initial_phase",
+      "type": "string"
+    },
+    {
+      "name": "mean",
+      "type": "float"
+    },
+    {
+      "name": "threshold",
+      "type": "float"
+    },
+    {
+      "name": "device_id",
+      "type": "string"
+    },
+    {
+      "name": "start_time",
+      "type": "string"
+    },
+    {
+      "name": "end_time",
+      "type": "string"
+    },
+    {
+      "name": "original_reconstructed_curves",
+      "type": "string"
+    }
+  ],
+  "config_values": [
+    {
+      "name": "logger_level",
+      "type": "string"
+    },
+    {
+      "name": "check_data_anomalies",
+      "type": "bool"
+    },
+    {
+      "name": "check_data_extreme_outlier",
+      "type": "bool"
+    },
+    {
+      "name": "check_data_schema",
+      "type": "bool"
+    },
+    {
+      "name": "check_receive_time_outlier",
+      "type": "bool"
+    }
+  ]
+}

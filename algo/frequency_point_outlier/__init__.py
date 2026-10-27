@@ -1,1 +1,0 @@
-from .outlier_detector import FrequencyDetector

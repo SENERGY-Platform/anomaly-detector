@@ -8,3 +8,6 @@ data_check.py
 *.pickle
 *.parquet
 *.pt
+.venv
+.vscode
+mlruns
