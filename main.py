@@ -35,6 +35,7 @@ from algo import live
 from algo.detectors import continuous_curve, extreme_value, load_curve, receive_time, schema
 from algo.detectors.continuous_curve import ContCurveModel
 from algo.detectors.load_curve import LoadCurveModel
+from algo.history import _read_history
 from algo.model import SCHEMA_VERSION, AnomalyModel
 from algo.training import train_anomaly_model
 
@@ -50,6 +51,11 @@ LAG_LIMIT_S = 120
 WATCHDOG_INTERVAL_S = 5
 # After a training the watchdog stays silent only this long for a message that does not come.
 PAUSE_GRACE_S = 600
+# At start the last arrivals are read back from this much history beyond the widest outage bound, at most
+# RESTORE_MAX: a pod that replaces another during an outage has not seen the message before it.
+RESTORE_MARGIN = datetime.timedelta(minutes=10)
+RESTORE_MAX = datetime.timedelta(days=2)
+RESTORE_TIMEOUT_S = 120
 BERLIN = zoneinfo.ZoneInfo("Europe/Berlin")
 UTC = datetime.timezone.utc
 
@@ -148,7 +154,11 @@ class Operator(MLOperator):
     # lifecycle
 
     def init(self, *args, **kwargs):
+        started = self._now()
         super().init(*args, **kwargs)
+        # Here, before the library starts consuming, nothing else can start or stop Ray meanwhile.
+        if self.config.check_receive_time_outlier and not self.config.test_end:
+            self._restore_arrivals(started)
         # After the first training, and the producer exists.
         self._watchdog = threading.Thread(target=self._watchdog_loop, name="outage-watchdog", daemon=True)
         self._watchdog.start()
@@ -311,6 +321,51 @@ class Operator(MLOperator):
                 self._check_outages()
             except Exception:
                 logger.exception("outage check failed")
+
+    def _restore_arrivals(self, started: datetime.datetime):
+        """
+        Arms every device whose last message in the history lies within its outage bound of the start, so an
+        outage that began before a restart is still reported. One whose bound had passed by the start is left
+        alone: the pod before may have reported it already. A device with a live message keeps that one.
+        """
+        try:
+            anomaly_model = _unwrap(getattr(self, "model", None))
+            if anomaly_model is None:
+                return
+            bounds = {key: datetime.timedelta(minutes=p.gaps.upper())
+                      for key, p in anomaly_model.devices.items() if p.gaps is not None}
+            if not bounds:
+                return
+            duration = min(max(bounds.values()) + RESTORE_MARGIN, RESTORE_MAX)
+            ray.init(address=self.config.ray_url)
+            try:
+                datasets = ray.get(provide_historic_data(duration), timeout=RESTORE_TIMEOUT_S)
+                notes: typing.List[str] = []
+                series, failed = _read_history(datasets, _topic_meta(), notes)
+            finally:
+                ray.shutdown()
+            for note in notes:
+                logger.info(note)
+            if failed:
+                logger.warning("the history of a topic is not readable, its devices keep no last arrival")
+            restored = 0
+            with self._lock:
+                for key, values in series.items():
+                    if key not in bounds or values.empty:
+                        continue
+                    last = _aware(values.index[-1].to_pydatetime())
+                    if last + bounds[key] <= started:
+                        continue
+                    st = self._live.get(key)
+                    if st is None:
+                        st = self._live[key] = live.DeviceState()
+                    if st.last_arrival is None:
+                        st.last_arrival = last
+                        st.armed = True
+                        restored += 1
+            logger.info(f"restored the last arrival of {restored} devices")
+        except Exception:
+            logger.exception("could not restore the last arrivals")
 
     def _check_outages(self):
         if not self.config.check_receive_time_outlier:

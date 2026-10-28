@@ -688,7 +688,8 @@ class TestOutages(OperatorTestCase):
         op = self.armed()
         self.wall = at(6)
         with mock.patch.object(main, "WATCHDOG_INTERVAL_S", 0.01), \
-                mock.patch.object(main.MLOperator, "init"), mock.patch.object(main.MLOperator, "stop"):
+                mock.patch.object(main.MLOperator, "init"), mock.patch.object(main.MLOperator, "stop"), \
+                mock.patch.object(Operator, "_restore_arrivals"):
             op.init()
             deadline = time.monotonic() + 10
             while not self.reports() and time.monotonic() < deadline:
@@ -697,6 +698,93 @@ class TestOutages(OperatorTestCase):
             self.assertTrue(op._watchdog.daemon)
             op.stop()
         self.assertFalse(op._watchdog.is_alive())
+
+
+class TestRestore(OperatorTestCase):
+    """A pod that replaces another during an outage reads the last arrivals back from the history."""
+
+    META = [{"filterType": "DeviceId", "filterValue": KEY}]
+
+    def restored(self, last, devices=None, history=None, ray_get=None):
+        op = self.operator(devices or {KEY: profile(gaps=GapStats(1.0, 0.1, 1000, 1.2))})  # upper limit 5 minutes
+        if history is None:
+            history = [FakeDataset(pd.DataFrame({"time": [last.replace(tzinfo=None) - MINUTE, last.replace(tzinfo=None)],
+                                                 "value": [100.0, 100.0]}))]
+        self.request = mock.Mock(return_value=history)
+        self.ray = mock.Mock()
+        self.ray.get.side_effect = ray_get or (lambda refs, timeout=None: refs)
+        with mock.patch("main.provide_historic_data", self.request), mock.patch("main.ray", self.ray), \
+                mock.patch("main._topic_meta", return_value=self.META):
+            op._restore_arrivals(self.wall)
+        return op
+
+    def reports(self):
+        return [p for p in self.produced if p["type"] == "time"]
+
+    def test_an_outage_that_began_before_the_start_is_reported(self):
+        op = self.restored(last=at(-2))
+        self.wall = at(2.5)
+        op._check_outages()
+        self.assertEqual(self.reports(), [])
+        self.wall = at(3.5)
+        op._check_outages()
+        self.wall = at(4)
+        op._check_outages()
+        self.assertEqual(self.reports(), [{"type": "time", "sub_type": "high", "value": 5.5, "mean": 1.0,
+                                           "threshold": 5.0, "device_id": KEY}])
+        self.ray.init.assert_called_once()
+        self.ray.shutdown.assert_called_once()
+
+    def test_a_device_past_its_bound_at_the_start_is_left_to_the_pod_before(self):
+        op = self.restored(last=at(-5))
+        self.wall = at(30)
+        op._check_outages()
+        self.assertEqual(self.reports(), [])
+        self.assertNotIn(KEY, op._live)
+
+    def test_a_live_arrival_is_kept(self):
+        op = self.operator({KEY: profile(gaps=GapStats(1.0, 0.1, 1000, 1.2))})
+        self.infer(op, 100.0, at(0))
+        frame = pd.DataFrame({"time": [at(-1).replace(tzinfo=None)], "value": [100.0]})
+        with mock.patch("main.provide_historic_data", return_value=[FakeDataset(frame)]), \
+                mock.patch("main.ray", mock.Mock(get=lambda refs, timeout=None: refs)), \
+                mock.patch("main._topic_meta", return_value=self.META):
+            op._restore_arrivals(at(0))
+        self.assertEqual(op._live[KEY].last_arrival, at(0))
+
+    def test_the_window_is_the_widest_bound_and_a_margin_at_most_restore_max(self):
+        devices = {KEY: profile(gaps=GapStats(1.0, 0.1, 1000, 1.2)), "b": profile(gaps=GapStats(10.0, 1.0, 1000, 12.0)),
+                   "c": profile(gaps=None)}
+        self.restored(last=at(-2), devices=devices)
+        self.request.assert_called_once_with(datetime.timedelta(minutes=36) + main.RESTORE_MARGIN)
+        self.restored(last=at(-2), devices={KEY: profile(gaps=GapStats(600.0, 1.0, 1000, 6000.0))})
+        self.request.assert_called_once_with(main.RESTORE_MAX)
+
+    def test_a_device_the_model_has_no_bound_for_is_not_armed_and_the_others_are(self):
+        frame = pd.DataFrame({"time": [at(-1).replace(tzinfo=None)], "value": [100.0]})
+        self.META = [{"filterType": "DeviceId", "filterValue": "other"}, {"filterType": "DeviceId", "filterValue": KEY}]
+        op = self.restored(last=at(-1), history=[FakeDataset(frame), FakeDataset(frame)])
+        self.assertNotIn("other", op._live)
+        self.assertEqual(op._live[KEY].last_arrival, at(-1))
+
+    def test_an_unreadable_history_does_not_stop_the_start(self):
+        def timeout(refs, timeout=None):
+            raise TimeoutError("no worker free")
+        with mock.patch("main.logger") as log:
+            op = self.restored(last=at(-2), ray_get=timeout)
+        log.exception.assert_called_once()
+        self.ray.shutdown.assert_called_once()
+        self.assertEqual(op._live, {})
+
+    def test_init_restores_from_its_own_start_before_consuming_unless_switched_off(self):
+        for flag, calls in ((True, [mock.call(at(0))]), (False, [])):
+            op = self.operator({KEY: profile()}, check_receive_time_outlier=flag)
+            self.wall = at(0)
+            with mock.patch.object(main.MLOperator, "init", side_effect=lambda *a, **k: setattr(self, "wall", at(3))), \
+                    mock.patch.object(Operator, "_restore_arrivals") as restore:
+                op.init()
+            op._stop_event.set()
+            self.assertEqual(restore.call_args_list, calls)
 
 
 class TestSchema(OperatorTestCase):
