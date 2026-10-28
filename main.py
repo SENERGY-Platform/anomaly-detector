@@ -35,7 +35,7 @@ from algo import live
 from algo.detectors import continuous_curve, extreme_value, load_curve, receive_time, schema
 from algo.detectors.continuous_curve import ContCurveModel
 from algo.detectors.load_curve import LoadCurveModel
-from algo.history import _read_history
+from algo.history import read_last_arrivals
 from algo.model import SCHEMA_VERSION, AnomalyModel
 from algo.training import train_anomaly_model
 
@@ -339,9 +339,12 @@ class Operator(MLOperator):
             duration = min(max(bounds.values()) + RESTORE_MARGIN, RESTORE_MAX)
             ray.init(address=self.config.ray_url)
             try:
-                datasets = ray.get(provide_historic_data(duration), timeout=RESTORE_TIMEOUT_S)
-                notes: typing.List[str] = []
-                series, failed = _read_history(datasets, _topic_meta(), notes)
+                task = read_last_arrivals.remote(provide_historic_data(duration), _topic_meta())
+                try:
+                    arrivals, notes, failed = ray.get(task, timeout=RESTORE_TIMEOUT_S)
+                except Exception:
+                    ray.cancel(task)
+                    raise
             finally:
                 ray.shutdown()
             for note in notes:
@@ -350,10 +353,10 @@ class Operator(MLOperator):
                 logger.warning("the history of a topic is not readable, its devices keep no last arrival")
             restored = 0
             with self._lock:
-                for key, values in series.items():
-                    if key not in bounds or values.empty:
+                for key, arrival in arrivals.items():
+                    if key not in bounds:
                         continue
-                    last = _aware(values.index[-1].to_pydatetime())
+                    last = _aware(arrival.to_pydatetime())
                     if last + bounds[key] <= started:
                         continue
                     st = self._live.get(key)

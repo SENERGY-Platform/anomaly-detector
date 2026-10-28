@@ -34,6 +34,7 @@ from operator_lib.util import clock
 import main
 from main import HISTORY_RETRIES, HISTORY_RETRY_S, LAG_LIMIT_S, CustomConfig, Operator
 from algo import live
+from algo.history import last_arrivals
 from algo.live import FALLBACK_SAMPLES, STATS_REFRESH
 from algo.detectors.continuous_curve import CURVE_LOCKOUT, Autoencoder, ContCurveModel
 from algo.detectors.extreme_value import MIN_VALUES, ValueStats, value_stats
@@ -712,9 +713,10 @@ class TestRestore(OperatorTestCase):
                                                  "value": [100.0, 100.0]}))]
         self.request = mock.Mock(return_value=history)
         self.ray = mock.Mock()
-        self.ray.get.side_effect = ray_get or (lambda refs, timeout=None: refs)
+        self.ray.get.side_effect = ray_get or (lambda ref, timeout=None: ref)
+        self.task = mock.Mock(remote=mock.Mock(side_effect=last_arrivals))
         with mock.patch("main.provide_historic_data", self.request), mock.patch("main.ray", self.ray), \
-                mock.patch("main._topic_meta", return_value=self.META):
+                mock.patch("main.read_last_arrivals", self.task), mock.patch("main._topic_meta", return_value=self.META):
             op._restore_arrivals(self.wall)
         return op
 
@@ -735,6 +737,11 @@ class TestRestore(OperatorTestCase):
         self.ray.init.assert_called_once()
         self.ray.shutdown.assert_called_once()
 
+    def test_the_history_is_read_in_a_ray_task_not_in_the_pod(self):
+        self.restored(last=at(-2))
+        self.task.remote.assert_called_once_with(self.request.return_value, self.META)
+        self.assertEqual(self.ray.get.call_args.kwargs, {"timeout": main.RESTORE_TIMEOUT_S})
+
     def test_a_device_past_its_bound_at_the_start_is_left_to_the_pod_before(self):
         op = self.restored(last=at(-5))
         self.wall = at(30)
@@ -747,7 +754,8 @@ class TestRestore(OperatorTestCase):
         self.infer(op, 100.0, at(0))
         frame = pd.DataFrame({"time": [at(-1).replace(tzinfo=None)], "value": [100.0]})
         with mock.patch("main.provide_historic_data", return_value=[FakeDataset(frame)]), \
-                mock.patch("main.ray", mock.Mock(get=lambda refs, timeout=None: refs)), \
+                mock.patch("main.ray", mock.Mock(get=lambda ref, timeout=None: ref)), \
+                mock.patch("main.read_last_arrivals", mock.Mock(remote=last_arrivals)), \
                 mock.patch("main._topic_meta", return_value=self.META):
             op._restore_arrivals(at(0))
         self.assertEqual(op._live[KEY].last_arrival, at(0))
@@ -773,6 +781,7 @@ class TestRestore(OperatorTestCase):
         with mock.patch("main.logger") as log:
             op = self.restored(last=at(-2), ray_get=timeout)
         log.exception.assert_called_once()
+        self.ray.cancel.assert_called_once()
         self.ray.shutdown.assert_called_once()
         self.assertEqual(op._live, {})
 

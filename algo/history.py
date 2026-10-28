@@ -14,7 +14,7 @@
    limitations under the License.
 """
 
-__all__ = ("_read_history",)
+__all__ = ("_read_history", "last_arrivals", "read_last_arrivals")
 
 import typing
 
@@ -84,3 +84,15 @@ def _read_history(datasets, topic_meta, notes: typing.List[str]):
         merged = pd.concat(ps).sort_index(kind="stable")
         series[key] = merged[~merged.index.duplicated(keep="first")]
     return series, failed
+
+
+def last_arrivals(datasets, topic_meta) -> typing.Tuple[typing.Dict[str, pd.Timestamp], typing.List[str], bool]:
+    """The time of the last message per device key (naive UTC), the notes of the read, and whether a requested
+    history could not be read."""
+    notes: typing.List[str] = []
+    series, failed = _read_history(datasets, topic_meta, notes)
+    return {key: values.index[-1] for key, values in series.items() if not values.empty}, notes, failed
+
+
+# A dataset executes only in a Ray task; in the operator pod, a Ray Client, it fails.
+read_last_arrivals = ray.remote(last_arrivals)
