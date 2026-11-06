@@ -186,12 +186,8 @@ class Stats(unittest.TestCase):
         self.assertEqual((stats.lower(), stats.upper()), (0.0, 120.0))
 
     def test_gap_upper_has_a_floor_and_a_factor(self):
-        self.assertEqual(GapStats(0.5, 0.0, 100, 0.5).upper(), 5)
-        self.assertEqual(GapStats(1.0, 0.5, 100, 10.0).upper(), 30.0)
-
-    def test_gap_lower_is_negative_without_regular_sending(self):
-        self.assertLess(GapStats(0.5, 0.4, 100, 3.0).lower(), 0)
-        self.assertGreater(GapStats(0.5, 0.01, 100, 0.5).lower(), 0)
+        self.assertEqual(GapStats(0.5, 100, 0.5).upper(), 5)
+        self.assertEqual(GapStats(1.0, 100, 10.0).upper(), 30.0)
 
     def test_the_training_and_the_live_fallback_compute_the_same(self):
         from algo import live

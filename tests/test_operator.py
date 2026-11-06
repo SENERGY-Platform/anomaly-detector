@@ -77,7 +77,7 @@ class UnreadableDataset:
         raise RuntimeError("Failed to get allocated resources")
 
 
-def profile(values=ValueStats(100.0, 10.0, 1000, 65.0, 135.0), gaps=GapStats(10.0, 1.0, 1000, 12.0)):
+def profile(values=ValueStats(100.0, 10.0, 1000, 65.0, 135.0), gaps=GapStats(10.0, 1000, 12.0)):
     return DeviceProfile(values, gaps)
 
 
@@ -116,12 +116,10 @@ class TestRun(OperatorTestCase):
         out = op.run({"value": 100.0, "original_input_ids": "x"}, "s", KEY, T0)
         self.assertEqual(out, (T0, None))
 
-    def test_two_findings_in_one_infer_give_a_list_of_two(self):
+    def test_a_short_gap_is_not_reported(self):
         op = self.operator({KEY: profile()})
         self.assertIsNone(self.infer(op, 100.0, at(0)))
-        self.wall = at(1)
-        results = op.run({"value": 1000.0}, "s", KEY, at(1))[1]
-        self.assertEqual(sorted(r["type"] for r in results), ["extreme_value", "time"])
+        self.assertIsNone(self.infer(op, 100.0, at(0.01)))
 
     def test_device_key_falls_back_to_the_original_input_id(self):
         op = self.operator({"orig": profile()})
@@ -226,43 +224,11 @@ class TestExtreme(OperatorTestCase):
 
 
 class TestGap(OperatorTestCase):
-    def test_too_short_gap_gives_time_low(self):
-        op = self.operator({KEY: profile()})
-        self.infer(op, 100.0, at(0))
-        (result,) = self.infer(op, 100.0, at(1))
-        self.assertEqual(result, {"type": "time", "sub_type": "low", "value": 1.0, "mean": 10.0, "threshold": 5.0,
-                                  "device_id": KEY})
-
-    def test_regular_gap_gives_nothing(self):
-        op = self.operator({KEY: profile()})
-        self.infer(op, 100.0, at(0))
-        self.assertIsNone(self.infer(op, 100.0, at(10)))
-
-    def test_duplicate_timestamp_is_no_gap(self):
-        regular = profile(gaps=GapStats(1.0, 0.001, 1000, 1.0))  # lower bound just below a minute
-        op = self.operator({KEY: regular}, check_data_extreme_outlier=False)
-        self.infer(op, 100.0, at(0))
-        self.assertIsNone(self.infer(op, 100.0, at(1)))
-        self.assertIsNone(self.infer(op, 100.0, at(1)))
-
     def test_out_of_order_message_is_no_gap(self):
         op = self.operator({KEY: profile()})
         self.infer(op, 100.0, at(10))
         self.assertIsNone(self.infer(op, 100.0, at(5)))
         self.assertEqual(op._live[KEY].last_arrival, at(10))
-
-    def test_new_device_uses_the_running_gap_statistic(self):
-        op = self.operator(None, check_data_extreme_outlier=False)
-        for i in range(MIN_GAPS + 1):
-            self.assertIsNone(self.infer(op, 100.0, at(10 * i)))
-        # Ten minutes every time: std 0, so anything shorter is too short.
-        (result,) = self.infer(op, 100.0, at(10 * (MIN_GAPS + 1) - 5))
-        self.assertEqual((result["type"], result["sub_type"], result["threshold"]), ("time", "low", 10.0))
-
-    def test_flag_off_gives_nothing(self):
-        op = self.operator({KEY: profile()}, check_receive_time_outlier=False)
-        self.infer(op, 100.0, at(0))
-        self.assertIsNone(self.infer(op, 100.0, at(1)))
 
 
 class TestRealCaseBimodal(OperatorTestCase):
@@ -321,7 +287,7 @@ class TestRealCaseGaps(OperatorTestCase):
 
 class TestOutages(OperatorTestCase):
     def armed(self, **config):
-        op = self.operator({KEY: profile(gaps=GapStats(1.0, 0.1, 1000, 1.2))}, **config)  # upper limit 5 minutes
+        op = self.operator({KEY: profile(gaps=GapStats(1.0, 1000, 1.2))}, **config)  # upper limit 5 minutes
         self.wall = at(0)
         self.infer(op, 100.0, at(0))
         return op
@@ -441,7 +407,7 @@ class TestRestore(OperatorTestCase):
     def restored(self, last, devices=None, history=None, ray_get=None, frames_error=None, datasets=None):
         """frames_error: what reading the history in the pod raises, after which it is read in a Ray task;
         datasets: what the Ray task reads, the history by default."""
-        op = self.operator(devices or {KEY: profile(gaps=GapStats(1.0, 0.1, 1000, 1.2))})  # upper limit 5 minutes
+        op = self.operator(devices or {KEY: profile(gaps=GapStats(1.0, 1000, 1.2))})  # upper limit 5 minutes
         if history is None:
             history = [pd.DataFrame({"time": [last.replace(tzinfo=None) - MINUTE, last.replace(tzinfo=None)],
                                      "value": [100.0, 100.0]})]
@@ -495,7 +461,7 @@ class TestRestore(OperatorTestCase):
         self.assertNotIn(KEY, op._live)
 
     def test_a_live_arrival_is_kept(self):
-        op = self.operator({KEY: profile(gaps=GapStats(1.0, 0.1, 1000, 1.2))})
+        op = self.operator({KEY: profile(gaps=GapStats(1.0, 1000, 1.2))})
         self.infer(op, 100.0, at(0))
         frame = pd.DataFrame({"time": [at(-1).replace(tzinfo=None)], "value": [100.0]})
         with mock.patch("main.provide_historic_frames_local", return_value=[frame]), \
@@ -504,11 +470,11 @@ class TestRestore(OperatorTestCase):
         self.assertEqual(op._live[KEY].last_arrival, at(0))
 
     def test_the_window_is_the_widest_bound_and_a_margin_at_most_restore_max(self):
-        devices = {KEY: profile(gaps=GapStats(1.0, 0.1, 1000, 1.2)), "b": profile(gaps=GapStats(10.0, 1.0, 1000, 12.0)),
+        devices = {KEY: profile(gaps=GapStats(1.0, 1000, 1.2)), "b": profile(gaps=GapStats(10.0, 1000, 12.0)),
                    "c": profile(gaps=None)}
         self.restored(last=at(-2), devices=devices)
         self.frames.assert_called_once_with(datetime.timedelta(minutes=36) + main.RESTORE_MARGIN)
-        self.restored(last=at(-2), devices={KEY: profile(gaps=GapStats(600.0, 1.0, 1000, 6000.0))})
+        self.restored(last=at(-2), devices={KEY: profile(gaps=GapStats(600.0, 1000, 6000.0))})
         self.frames.assert_called_once_with(main.RESTORE_MAX)
         self.restored(last=at(-2), frames_error=HistoryNeedsRayError("only in Kafka"))
         self.request.assert_called_once_with(datetime.timedelta(minutes=5) + main.RESTORE_MARGIN)
@@ -523,7 +489,7 @@ class TestRestore(OperatorTestCase):
     def test_an_input_unreadable_in_the_pod_leaves_out_only_that_input_in_the_ray_task(self):
         frame = pd.DataFrame({"time": [at(-1).replace(tzinfo=None)], "value": [100.0]})
         self.META = [{"filterType": "DeviceId", "filterValue": "other"}, {"filterType": "DeviceId", "filterValue": KEY}]
-        devices = {KEY: profile(gaps=GapStats(1.0, 0.1, 1000, 1.2)), "other": profile(gaps=GapStats(1.0, 0.1, 1000, 1.2))}
+        devices = {KEY: profile(gaps=GapStats(1.0, 1000, 1.2)), "other": profile(gaps=GapStats(1.0, 1000, 1.2))}
         with mock.patch("main.logger") as log:
             op = self.restored(last=at(-1), devices=devices, frames_error=RuntimeError('relation "x" does not exist'),
                                datasets=[UnreadableDataset(), FakeDataset(frame)])
@@ -657,7 +623,7 @@ class TestTrain(OperatorTestCase):
         log.exception.assert_called_once()
 
     def test_the_outage_report_resumes_after_the_grace_period_without_a_message(self):
-        op = self.operator({KEY: profile(gaps=GapStats(1.0, 0.1, 1000, 1.2))})  # upper limit 5 minutes
+        op = self.operator({KEY: profile(gaps=GapStats(1.0, 1000, 1.2))})  # upper limit 5 minutes
         self.wall = at(0)
         self.infer(op, 100.0, at(0))
         stale = anomaly_model({KEY: profile()}, trained_until=T0 - datetime.timedelta(days=1))

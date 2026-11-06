@@ -13,7 +13,7 @@
    See the License for the specific language governing permissions and
    limitations under the License.
 
-Detects a gap between messages that is too long for the device, once per outage, or too short for a device that sends regularly. The bounds come from the gaps in the history.
+Detects a gap between messages that is too long for the device, once per outage. The bound comes from the gaps in the history.
 """
 
 import dataclasses
@@ -21,8 +21,6 @@ import typing
 
 import numpy as np
 import pandas as pd
-
-from ..model import K_SIGMA
 
 MIN_GAPS = 30
 # A device that sends every few seconds but pauses for minutes at idle: the bound is a multiple of the 99.9 %
@@ -35,22 +33,16 @@ GAP_QUANTILE = 0.999
 @dataclasses.dataclass
 class GapStats:
     mean_min: float  # for the output only
-    std_min: float
     n: int
     q999_min: float  # 99.9 % quantile of the gaps
 
     def upper(self) -> float:
         return max(GAP_MIN_UPPER_MIN, GAP_UPPER_FACTOR * self.q999_min)
 
-    def lower(self) -> float:
-        # Positive only for a device that sends regularly; otherwise nothing is too short.
-        return self.mean_min - K_SIGMA * self.std_min
-
 
 def gap_stats(gaps_min: np.ndarray) -> GapStats:
     gaps_min = np.asarray(gaps_min, dtype=float)
-    return GapStats(float(np.mean(gaps_min)), float(np.std(gaps_min)), int(len(gaps_min)),
-                    float(np.quantile(gaps_min, GAP_QUANTILE)))
+    return GapStats(float(np.mean(gaps_min)), int(len(gaps_min)), float(np.quantile(gaps_min, GAP_QUANTILE)))
 
 
 def _gap_stats(index: pd.DatetimeIndex) -> typing.Optional[GapStats]:
@@ -58,23 +50,15 @@ def _gap_stats(index: pd.DatetimeIndex) -> typing.Optional[GapStats]:
     return gap_stats(gaps) if len(gaps) >= MIN_GAPS else None
 
 
-def check(profile, st, key, ts) -> typing.Optional[dict]:
-    result = None
+def arrive(st, ts):
+    """Records a message; one out of order or a duplicate is neither a gap nor a newer arrival."""
     prev = st.last_arrival
     if prev is not None and ts <= prev:
-        return None  # out of order or a duplicate: neither a gap nor a newer arrival
-    try:
-        if prev is not None:
-            gap = (ts - prev).total_seconds() / 60
-            stats = profile.gaps if profile is not None and profile.gaps is not None else st.gaps.stats()
-            if stats is not None and stats.lower() > 0 and gap < stats.lower():
-                result = {"type": "time", "sub_type": "low", "value": gap, "mean": round(stats.mean_min, 2),
-                          "threshold": round(stats.lower(), 2), "device_id": key}
-            st.gaps.add(gap)
-    finally:
-        st.last_arrival = ts
-        st.armed = True
-    return result
+        return
+    if prev is not None:
+        st.gaps.add((ts - prev).total_seconds() / 60)
+    st.last_arrival = ts
+    st.armed = True
 
 
 def outage(profile, st, key, now) -> typing.Optional[dict]:

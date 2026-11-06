@@ -278,26 +278,15 @@ class Operator(MLOperator):
         anomaly_model = _unwrap(model)
         profile = anomaly_model.profile(key) if anomaly_model is not None else None
 
-        results = []
-        checks = []
-        if self.config.check_data_extreme_outlier:
-            checks.append(("extreme value", lambda: extreme_value.check(profile, st, key, value)))
         if self.config.check_receive_time_outlier:
-            checks.append(("receive time", lambda: self._under_lock(receive_time.check, profile, st, key, ts)))
-        for name, check in checks:
-            try:
-                result = check()
-            except Exception:
-                logger.exception(f"{name} check failed")
-                continue
+            # The watchdog shares the arrivals and gaps of the device.
+            with self._lock:
+                receive_time.arrive(st, ts)
+        if self.config.check_data_extreme_outlier:
+            result = extreme_value.check(profile, st, key, value)
             if result is not None:
-                results.append(result)
-        return results
-
-    def _under_lock(self, check, *args):
-        # The check reads and writes the device state the watchdog shares, so it runs under the lock.
-        with self._lock:
-            return check(*args)
+                return [result]
+        return []
 
     # missing messages
 

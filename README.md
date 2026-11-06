@@ -10,7 +10,7 @@ Detects anomalies in a numeric series per device: extreme values, unusual gaps b
 | Name | Meaning |
 | --- | --- |
 | `type` | `extreme_value`, `time` or `schema` |
-| `sub_type` | `high`/`low` for `extreme_value` and `time` |
+| `sub_type` | `high`/`low` for `extreme_value`, `high` for `time` |
 | `value` | the value, the gap in minutes or the message (`schema`) |
 | `mean` | mean of the statistic the value was compared with |
 | `threshold` | the bound that was crossed |
@@ -21,7 +21,7 @@ Detects anomalies in a numeric series per device: extreme values, unusual gaps b
 | Check | Config | How | Code |
 | --- | --- | --- | --- |
 | Extreme value | `check_data_extreme_outlier` | the 0.01 % and 99.99 % quantiles of all values in the history, widened by 20 % of their distance on both sides, at least by 5 % of the larger quantile; for a quantity that never was negative, such as power, the lower bound is 0, so only a negative value counts; reported once per excursion beyond a bound; quantiles because mean ± 5 standard deviations sits inside the upper mode of a two-mode device | [extreme_value.py](algo/detectors/extreme_value.py) |
-| Gap between messages | `check_receive_time_outlier` | too long: 3 times the 99.9 % quantile of the gaps in the history, at least 5 minutes, reported by a watchdog while no message comes, once per outage, also across a restart: at start the operator reads the last message of each device back from the history and watches it when its bound had not passed yet; too short: below mean − 5 standard deviations, only for devices that send regularly, reported when the message arrives | [receive_time.py](algo/detectors/receive_time.py) |
+| Gap between messages | `check_receive_time_outlier` | too long: 3 times the 99.9 % quantile of the gaps in the history, at least 5 minutes, reported by a watchdog while no message comes, once per outage, also across a restart: at start the operator reads the last message of each device back from the history and watches it when its bound had not passed yet; a short gap is not reported | [receive_time.py](algo/detectors/receive_time.py) |
 | Message schema | `check_data_schema` | a message the input mapping cannot read | [schema.py](algo/detectors/schema.py) |
 
 A device without enough history (30 values or gaps) uses the same statistics over its last 10,000 live values and gaps until the next training, recomputed with every value while it has fewer than 1,000.
