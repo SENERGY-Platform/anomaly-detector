@@ -44,8 +44,6 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import pandas as pd
 
 from algo import training
-from algo.detectors.continuous_curve import ContCurveModel
-from algo.detectors.load_curve import LoadCurveModel
 from main import CustomConfig, Operator
 
 WRAPPER_URL = "https://api.senergy.infai.org/db/v3"
@@ -104,14 +102,14 @@ def _split(cache, device, replay_days):
 
 def _train(train):
     model, _, _ = training.fit_anomaly_model([_Frame(train)], [{"filterType": "DeviceId", "filterValue": "d"}],
-                                             train["time"].max().to_pydatetime(), True)
+                                             train["time"].max().to_pydatetime())
     return model
 
 
 def _play(model, test):
     produced = []
     op = Operator()
-    op.config = CustomConfig({"check_data_anomalies": True})
+    op.config = CustomConfig({})
     state = {}
     op._now = lambda: state["wall"]  # replayed time: no backlog, the watchdog sees the gaps as they were
     op.produce = lambda report: produced.append((state["wall"], report))
@@ -134,16 +132,12 @@ def _describe(model):
     p = model.profile("d")
     if p is None:
         return "no profile"
-    text = f"type={p.device_type}"
-    if isinstance(p.curve, ContCurveModel):
-        text += f" threshold={p.curve.error_threshold:.4f}"
-    if isinstance(p.curve, LoadCurveModel):
-        text += f" runs={p.curve.n_loads} regular={p.curve.regular}"
+    text = ""
     if p.values:
-        text += f" values=[{p.values.lower():.1f}, {p.values.upper():.1f}]"
+        text += f"values=[{p.values.lower():.1f}, {p.values.upper():.1f}] "
     if p.gaps:
-        text += f" gap_upper={p.gaps.upper():.1f}min"
-    return text
+        text += f"gap_upper={p.gaps.upper():.1f}min"
+    return text.strip() or "empty profile"
 
 
 def replay(devices, cache, replay_days):
@@ -175,30 +169,10 @@ def _outage(test, at):
     return test[(test["time"] < at) | (test["time"] >= end)].reset_index(drop=True), at, end
 
 
-def _flat(test, at, value):
-    end = at + pd.Timedelta(hours=6)
-    test.loc[(test["time"] >= at) & (test["time"] < end), "value"] = value
-    return test, at, end
-
-
-def _held_run(test, at):
-    """The first run after `at` (above median + 10, the run rule) keeps its level for five hours."""
-    on = test[(test["time"] >= at) & (test["value"] > float(test["value"].median()) + 10)]
-    if on.empty:
-        return test, at, at
-    start = on["time"].iloc[0]
-    end = start + pd.Timedelta(hours=5)
-    test.loc[(test["time"] >= start) & (test["time"] < end), "value"] = float(on["value"].iloc[:20].median())
-    return test, start, end
-
-
 INJECTIONS = {
     "spike 3x max": _spike,
     "negative value": _negative,
     "outage 30 min": _outage,
-    "flat at 0 for 6 h": lambda t, a: _flat(t, a, 0.0),
-    "flat at 2x median for 6 h": lambda t, a: _flat(t, a, 2 * float(t["value"].median()) + 10),
-    "run held for 5 h": _held_run,
 }
 
 

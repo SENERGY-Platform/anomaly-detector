@@ -14,7 +14,7 @@
    limitations under the License.
 """
 
-__all__ = ("SampleBuffer", "DeviceState", "BUFFER_MINUTES", "FALLBACK_SAMPLES", "STATS_REFRESH")
+__all__ = ("SampleBuffer", "DeviceState", "FALLBACK_SAMPLES", "STATS_REFRESH")
 
 import collections
 import datetime
@@ -22,13 +22,9 @@ import typing
 
 import numpy as np
 
-from . import preprocessing
 from .detectors.extreme_value import MIN_VALUES, value_stats
-from .detectors.load_curve import RunTracker
 from .detectors.receive_time import MIN_GAPS, gap_stats
 
-
-BUFFER_MINUTES = 240
 
 # The statistic of a device without a profile comes from its last values and gaps, as many as the history gives.
 FALLBACK_SAMPLES = 10_000
@@ -76,15 +72,4 @@ class DeviceState:
         self.gaps = SampleBuffer(gap_stats, MIN_GAPS)
         self.last_arrival: typing.Optional[datetime.datetime] = None  # Kafka time of the last message
         self.armed = False  # whether a missing message may be reported
-        self.buffer: typing.Deque[preprocessing.Sample] = collections.deque()
-        self.last_check_minute: typing.Optional[datetime.datetime] = None
-        self.last_hit: typing.Optional[datetime.datetime] = None
-        self.curve_locked_until: typing.Optional[datetime.datetime] = None
         self.extreme_side: typing.Optional[str] = None  # "high" or "low" while values are out of bounds
-        self.run = RunTracker()
-
-    def push(self, ts: datetime.datetime, value: float):
-        self.buffer.append((ts, value))
-        limit = ts - datetime.timedelta(minutes=BUFFER_MINUTES)
-        while self.buffer and self.buffer[0][0] < limit:
-            self.buffer.popleft()

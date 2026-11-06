@@ -20,14 +20,12 @@ ENV UV_PROJECT_ENVIRONMENT=/opt/venv UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy UV_
 ENV UV_PYTHON=3.10
 WORKDIR /usr/src/app
 COPY pyproject.toml uv.lock ./
-# git only for the operator lib, which is installed from GitHub. The packages' own test suites and torch's
-# C++ headers and test binaries are not used at runtime (about 260 MB); uv run does not reinstall them, it only
-# checks which packages are installed.
+# git only for the operator lib, which is installed from GitHub. The packages' own test suites are not used at
+# runtime; uv run does not reinstall them, it only checks which packages are installed.
 RUN apt-get update && apt-get install -y --no-install-recommends git \
     && uv sync --frozen --no-dev \
     && SP=/opt/venv/lib/python3.10/site-packages \
     && find $SP -depth -type d -name tests -exec rm -rf {} + \
-    && rm -rf $SP/torch/test $SP/torch/include $SP/torch/bin/test_* \
     && apt-get purge -y git && apt-get autoremove -y && rm -rf /var/lib/apt/lists/*
 COPY --from=revision /git_commit git_commit
 COPY main.py .

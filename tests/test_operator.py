@@ -14,7 +14,6 @@
    limitations under the License.
 """
 
-import dataclasses
 import datetime
 import json
 import os
@@ -28,7 +27,6 @@ from unittest import mock
 
 import numpy as np
 import pandas as pd
-import torch
 
 from operator_lib.util import clock
 from operator_lib.util.helpers import HistoryNeedsRayError
@@ -38,13 +36,11 @@ from main import HISTORY_RETRIES, HISTORY_RETRY_S, LAG_LIMIT_S, CustomConfig, Op
 from algo import live
 from algo.history import last_arrivals
 from algo.live import FALLBACK_SAMPLES, STATS_REFRESH
-from algo.detectors.continuous_curve import CURVE_LOCKOUT, Autoencoder, ContCurveModel
 from algo.detectors.extreme_value import MIN_VALUES, ValueStats, value_stats
-from algo.detectors.load_curve import LoadCurveModel, RunTracker, fit_load_curve
 from algo.detectors.receive_time import MIN_GAPS, GapStats
-from algo.model import SCHEMA_VERSION, WINDOW, AnomalyModel, DeviceProfile
+from algo.model import SCHEMA_VERSION, AnomalyModel, DeviceProfile
 from algo.training import fit_anomaly_model
-from tests.test_training import START, day_curve, to_frame
+from tests.test_training import START, to_frame
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 UTC = datetime.timezone.utc
@@ -81,38 +77,12 @@ class UnreadableDataset:
         raise RuntimeError("Failed to get allocated resources")
 
 
-@dataclasses.dataclass
-class StubCurve(ContCurveModel):
-    """Error is the mean deviation from the window mean: zero for a flat window, large for a deformed one."""
-
-    def reconstruct(self, window):
-        window = np.asarray(window, dtype=float)
-        recon = np.full(WINDOW, window.mean())
-        return recon, float(np.abs(window - recon).mean() / self.training_max)
-
-
-@dataclasses.dataclass
-class RaisingCurve(ContCurveModel):
-    def reconstruct(self, window):
-        raise RuntimeError("broken network")
-
-
-def stub_curve(cls=StubCurve, threshold=0.05):
-    return cls(state_dict={}, training_max=100.0, error_threshold=threshold)
-
-
-def profile(values=ValueStats(100.0, 10.0, 1000, 65.0, 135.0), gaps=GapStats(10.0, 1.0, 1000, 12.0), curve=None,
-            device_type="cont_device", baseline=100.0):
-    return DeviceProfile(device_type, baseline, values, gaps, curve)
+def profile(values=ValueStats(100.0, 10.0, 1000, 65.0, 135.0), gaps=GapStats(10.0, 1.0, 1000, 12.0)):
+    return DeviceProfile(values, gaps)
 
 
 def anomaly_model(devices, trained_until=T0, schema_version=SCHEMA_VERSION):
     return AnomalyModel(schema_version, trained_until, devices)
-
-
-def load_curve():
-    """Regular runs of 36 to 44 minutes at 300."""
-    return fit_load_curve([np.full(int(n), 300.0) for n in np.linspace(36, 44, 40)])
 
 
 class OperatorTestCase(unittest.TestCase):
@@ -189,19 +159,11 @@ class TestExtreme(OperatorTestCase):
         op = self.operator({KEY: profile()}, check_data_extreme_outlier=False)
         self.assertIsNone(self.infer(op, 180.0, T0))
 
-    def test_load_device_in_standby_reports_no_low(self):
+    def test_device_in_standby_reports_no_low(self):
         # Standby at the 0.01 % quantile puts the lower bound below zero.
-        load = profile(ValueStats(300.0, 20.0, 100, 5.0, 800.0), None, None, "load_device", 5.0)
-        op = self.operator({KEY: load})
+        op = self.operator({KEY: profile(ValueStats(300.0, 20.0, 100, 5.0, 800.0), None)})
         self.assertIsNone(self.infer(op, 5.0, T0))
         self.assertIsNone(self.infer(op, 0.0, at(1)))
-
-    def test_load_device_is_checked_like_any_other_in_a_run(self):
-        load = profile(ValueStats(300.0, 20.0, 100, 250.0, 350.0), None, None, "load_device", 5.0)
-        op = self.operator({KEY: load})
-        self.assertIsNone(self.infer(op, 250.0, at(0)))
-        (result,) = self.infer(op, 100.0, at(1))
-        self.assertEqual((result["sub_type"], result["threshold"]), ("low", 230.0))
 
     def test_new_device_reports_through_the_running_statistic_after_min_values(self):
         op = self.operator(None, check_receive_time_outlier=False)
@@ -263,24 +225,6 @@ class TestExtreme(OperatorTestCase):
         self.assertEqual(p.values, ValueStats(100.0, 10.0, 1000, 65.0, 135.0))
 
 
-class TestRunTracker(unittest.TestCase):
-    def test_follows_the_training_rule_sample_by_sample(self):
-        from algo import preprocessing
-        rng = np.random.RandomState(1)
-        level = np.concatenate([np.full(rng.randint(5, 60), rng.choice([5.0, 5.5, 40.0, 300.0])) for _ in range(60)])
-        values = level + rng.normal(0, 3, len(level)) * (level > 20)
-        index = pd.date_range("2026-03-10", periods=len(values), freq="min")
-        expected = preprocessing.active_mask(pd.Series(values, index=index), 5.0).to_numpy()
-        tracker = RunTracker()
-        got = [tracker.update(t.to_pydatetime().replace(tzinfo=UTC), float(v), 5.0)[0] for t, v in zip(index, values)]
-        # The training marks the sample before a start as part of the run, which a live check cannot know yet.
-        starts = np.flatnonzero(np.diff(np.append(False, got).astype(int)) == 1)
-        expected = expected.copy()
-        expected[starts[starts > 0] - 1] = False
-        self.assertTrue(expected.any())
-        self.assertEqual(got, list(expected))
-
-
 class TestGap(OperatorTestCase):
     def test_too_short_gap_gives_time_low(self):
         op = self.operator({KEY: profile()})
@@ -321,220 +265,6 @@ class TestGap(OperatorTestCase):
         self.assertIsNone(self.infer(op, 100.0, at(1)))
 
 
-class TestContCurve(OperatorTestCase):
-    @classmethod
-    def setUpClass(cls):
-        torch.manual_seed(0)
-        cls.real_curve = ContCurveModel(
-            {k: v.detach().clone() for k, v in Autoencoder().state_dict().items()}, 200.0, 0.0)
-
-    def operator_with(self, curve, spike=True):
-        """250 buffered minutes, flat at 100 except a spike of 20 minutes inside the window."""
-        op = self.operator({KEY: profile(curve=curve)}, check_data_anomalies=True, check_receive_time_outlier=False,
-                           check_data_extreme_outlier=False)
-        st = op._live.setdefault(KEY, main.live.DeviceState())
-        for k in range(250):
-            flat = not (spike and 150 <= k <= 170)
-            st.push(at(k), 100.0 if flat else 300.0)
-        return op, st
-
-    def test_first_hit_alone_reports_nothing(self):
-        op, st = self.operator_with(stub_curve())
-        self.assertIsNone(self.infer(op, 100.0, at(250)))
-        self.assertEqual(st.last_hit, at(250))
-
-    def test_second_hit_within_30_minutes_reports_a_parsable_curve(self):
-        op, _ = self.operator_with(stub_curve())
-        self.infer(op, 100.0, at(250))
-        (result,) = self.infer(op, 100.0, at(251))
-        self.assertEqual((result["type"], result["sub_type"], result["device_id"]),
-                         ("curve_anomaly", "continous_device", KEY))
-        curves = json.loads(result["original_reconstructed_curves"])
-        self.assertEqual(len(curves), WINDOW)
-        self.assertTrue(all(len(c) == 3 and isinstance(c[0], int) for c in curves))
-        self.assertTrue(all(isinstance(x, float) for c in curves for x in c[1:]))
-        # Millisecond stamps of consecutive minutes.
-        self.assertEqual({b[0] - a[0] for a, b in zip(curves, curves[1:])}, {60000})
-        self.assertEqual(curves[0][0], pd.Timestamp(result["start_time"].rstrip("Z")).value // 10**6)
-        self.assertEqual(result["value"], result["start_time"])
-        self.assertTrue(result["start_time"].endswith("Z") and result["end_time"].endswith("Z"))
-        # The centred smoothing leaves the last 14 minutes empty, so the window ends 14 minutes before the last one.
-        self.assertEqual(pd.Timestamp(result["end_time"].rstrip("Z")), pd.Timestamp(at(251 - 14).replace(tzinfo=None)))
-        # The spike lies in the original values.
-        self.assertEqual(max(c[1] for c in curves) > 200, True)
-
-    def test_hit_more_than_30_minutes_after_the_last_is_not_reported_but_counts_as_last(self):
-        op, st = self.operator_with(stub_curve())
-        st.last_hit = at(250) - datetime.timedelta(minutes=31)
-        self.assertIsNone(self.infer(op, 100.0, at(250)))
-        self.assertEqual(st.last_hit, at(250))
-
-    def test_hit_exactly_30_minutes_after_the_last_is_reported(self):
-        op, st = self.operator_with(stub_curve())
-        st.last_hit = at(250) - datetime.timedelta(minutes=30)
-        self.assertEqual(len(self.infer(op, 100.0, at(250))), 1)
-
-    def test_after_a_report_the_device_is_locked_for_a_window(self):
-        op, st = self.operator_with(stub_curve())
-        self.infer(op, 100.0, at(250))
-        self.assertEqual(len(self.infer(op, 100.0, at(251))), 1)
-        self.assertEqual(st.curve_locked_until, at(251) + CURVE_LOCKOUT)
-        self.assertEqual(CURVE_LOCKOUT, datetime.timedelta(minutes=WINDOW))
-        # The spike is still in the window: neither a report nor a hit that could feed the next report.
-        self.assertIsNone(self.infer(op, 100.0, at(252)))
-        self.assertEqual(st.last_hit, at(251))
-
-    def test_the_lock_ends_at_its_time(self):
-        op, st = self.operator_with(stub_curve())
-        self.infer(op, 100.0, at(250))
-        self.infer(op, 100.0, at(251))
-        st.curve_locked_until = at(253)
-        self.assertIsNone(self.infer(op, 100.0, at(252)))
-        self.assertEqual(len(self.infer(op, 100.0, at(253))), 1)  # the hit of 251 is within the debounce
-
-    def test_flat_window_gives_no_hit(self):
-        op, st = self.operator_with(stub_curve(), spike=False)
-        self.assertIsNone(self.infer(op, 100.0, at(250)))
-        self.assertIsNone(st.last_hit)
-
-    def test_no_check_before_a_full_window_is_buffered(self):
-        op = self.operator({KEY: profile(curve=stub_curve())}, check_data_anomalies=True,
-                           check_receive_time_outlier=False, check_data_extreme_outlier=False)
-        for i in range(100):
-            self.assertIsNone(self.infer(op, 300.0 if i % 2 else 100.0, at(i)))
-        self.assertIsNone(op._live[KEY].last_hit)
-
-    def test_one_check_per_minute(self):
-        op, _ = self.operator_with(stub_curve())
-        with mock.patch.object(StubCurve, "reconstruct", autospec=True, side_effect=StubCurve.reconstruct) as rec:
-            self.infer(op, 100.0, at(250))
-            self.infer(op, 100.0, at(250.5))
-            self.assertEqual(rec.call_count, 1)
-            self.infer(op, 100.0, at(251))
-            self.assertEqual(rec.call_count, 2)
-
-    def test_messages_alone_fill_the_buffer_and_the_real_network_runs(self):
-        op = self.operator({KEY: profile(curve=self.real_curve)}, check_data_anomalies=True,
-                           check_receive_time_outlier=False, check_data_extreme_outlier=False)
-        first_hit, reported = None, []
-        for i in range(260):
-            results = self.infer(op, 100 + 50 * np.sin(2 * np.pi * i / 1440), at(i))
-            if first_hit is None and op._live[KEY].last_hit is not None:
-                first_hit = i
-                self.assertIsNone(results)
-            if results:
-                reported.append(i)
-                self.assertEqual(len(json.loads(results[0]["original_reconstructed_curves"])), WINDOW)
-        # Threshold 0: every checked minute is a hit, and the second one is the first report.
-        self.assertIsNotNone(first_hit)
-        self.assertEqual(reported[0], first_hit + 1)
-        self.assertEqual(len(op._live[KEY].buffer), 241)  # 240 minutes, both ends included
-
-    def test_exception_in_the_curve_check_keeps_the_other_findings(self):
-        op = self.operator({KEY: profile(curve=stub_curve(RaisingCurve))}, check_data_anomalies=True)
-        st = op._live.setdefault(KEY, main.live.DeviceState())
-        for k in range(250):
-            st.push(at(k), 100.0)
-        self.infer(op, 100.0, at(249.5))
-        with mock.patch("main.logger") as log:
-            results = self.infer(op, 1000.0, at(250))
-        log.exception.assert_called_once()
-        self.assertEqual([r["type"] for r in results], ["extreme_value", "time"])
-
-
-class TestContCurveRegression(OperatorTestCase):
-    """
-    A small real model on a synthetic daily cycle: a normal day stays quiet, a short spike is reported once. The
-    epochs are many because the small training set has few steps per epoch; fewer leave a network whose error
-    is too large for the spike to stand out.
-    """
-
-    @classmethod
-    def setUpClass(cls):
-        torch.manual_seed(0)
-        cls.model, _, _ = fit_anomaly_model([FakeDataset(to_frame(day_curve(5, step_s=60, seed=1)))],
-                                            [{"filterType": "DeviceId", "filterValue": KEY}], T0, True, epochs=300)
-        cls.fresh = day_curve(1, step_s=60, seed=2, start=START + pd.Timedelta(days=5)).to_numpy()
-
-    def run_values(self, values):
-        """Minutes of the curve_anomaly reports when the values come in minute by minute."""
-        op = self.operator(None, model=self.model, check_data_anomalies=True, check_receive_time_outlier=False,
-                           check_data_extreme_outlier=False)
-        found = []
-        for i, v in enumerate(values):
-            self.wall = at(i)
-            results = self.infer(op, float(v), at(i))
-            found += [i for r in results or [] if r["type"] == "curve_anomaly"]
-        return found
-
-    def test_a_fresh_normal_day_gives_at_most_two_reports(self):
-        self.assertIsNotNone(self.model.profile(KEY).curve)
-        self.assertLessEqual(len(self.run_values(self.fresh)), 2)
-
-    def test_a_five_minute_spike_gives_exactly_one_report_in_the_window_after_it(self):
-        values = self.fresh.copy()
-        values[700:705] += 600
-        found = [i for i in self.run_values(values) if 700 <= i <= 700 + WINDOW]
-        self.assertEqual(len(found), 1)
-
-
-class TestLoadCurve(OperatorTestCase):
-    def feed_run(self, op, minutes_on, minutes_off=12):
-        values = [5.0] * 3 + [300.0] * minutes_on + [5.0] * minutes_off
-        results = [self.infer(op, v, at(i)) for i, v in enumerate(values)]
-        return [r for r in results if r]
-
-    def operator_load(self):
-        curve = load_curve()
-        self.assertEqual(curve.score(np.full(200, 300.0)), "uncontinious_device_length")
-        self.assertIsNone(curve.score(np.full(40, 300.0)))
-        return self.operator({KEY: profile(None, None, curve, "load_device", 5.0)}, check_data_anomalies=True,
-                             check_receive_time_outlier=False, check_data_extreme_outlier=False)
-
-    def test_overlong_run_gives_a_length_anomaly_at_its_end(self):
-        found = self.feed_run(self.operator_load(), 200)
-        self.assertEqual(len(found), 1)
-        (result,) = found[0]
-        self.assertEqual((result["type"], result["sub_type"], result["value"], result["device_id"]),
-                         ("curve_anomaly", "uncontinious_device_length", "", KEY))
-        self.assertTrue(result["start_time"].endswith("Z") and result["end_time"].endswith("Z"))
-        self.assertNotIn("original_reconstructed_curves", result)
-
-    def test_normal_run_gives_nothing(self):
-        self.assertEqual(self.feed_run(self.operator_load(), 40), [])
-
-    def test_run_still_going_gives_nothing(self):
-        self.assertEqual(self.feed_run(self.operator_load(), 200, minutes_off=5), [])
-
-    def test_flag_off_gives_nothing(self):
-        op = self.operator_load()
-        op.config.check_data_anomalies = False
-        self.assertEqual(self.feed_run(op, 200), [])
-
-    def test_the_length_at_runtime_is_the_length_in_training_at_any_cadence(self):
-        from algo import preprocessing
-        for cadence in (1, 5, 15, 60):
-            with self.subTest(cadence=cadence):
-                index = pd.date_range(T0.replace(tzinfo=None), periods=20 * 60 // cadence, freq=f"{cadence}min")
-                values = np.full(len(index), 5.0)
-                values[(index >= index[0] + pd.Timedelta(150, "min")) & (index < index[0] + pd.Timedelta(210, "min"))] = 300.0
-                expected = preprocessing.extract_loads(preprocessing.to_minutes(pd.Series(values, index=index)), 5.0)
-                self.assertEqual(len(expected), 1)
-                lengths = []
-
-                class Capture(LoadCurveModel):
-                    def score(self, load):
-                        lengths.append(len(load))
-
-                base = load_curve()
-                curve = Capture(**{f.name: getattr(base, f.name) for f in dataclasses.fields(base)})
-                op = self.operator({KEY: profile(None, None, curve, "load_device", 5.0)}, check_data_anomalies=True,
-                                   check_receive_time_outlier=False, check_data_extreme_outlier=False)
-                for t, v in zip(index, values):
-                    self.infer(op, float(v), t.to_pydatetime().replace(tzinfo=UTC))
-                self.assertEqual(lengths, [len(expected[0])])
-
-
 class TestRealCaseBimodal(OperatorTestCase):
     def test_pump_and_heating_element(self):
         rng = np.random.RandomState(4)
@@ -543,7 +273,7 @@ class TestRealCaseBimodal(OperatorTestCase):
             values += [0.0] * 120 + list(40 + rng.normal(0, 2, 30)) + list(rng.uniform(1700, 1950, 20))
         index = START + pd.to_timedelta(np.arange(len(values)), unit="min")
         model, _, _ = fit_anomaly_model([FakeDataset(to_frame(pd.Series(values, index=index)))],
-                                        [{"filterType": "DeviceId", "filterValue": KEY}], T0, False)
+                                        [{"filterType": "DeviceId", "filterValue": KEY}], T0)
         op = self.operator(model=model, check_receive_time_outlier=False)
         self.assertIsNone(self.infer(op, 0.0, at(0)))  # standby
         self.assertIsNone(self.infer(op, 1950.0, at(1)))
@@ -556,7 +286,7 @@ class TestRealCaseGaps(OperatorTestCase):
 
     def trained(self, times):
         frame = pd.DataFrame({"time": times, "value": 100.0})
-        model, _, _ = fit_anomaly_model([FakeDataset(frame)], [{"filterType": "DeviceId", "filterValue": KEY}], T0, False)
+        model, _, _ = fit_anomaly_model([FakeDataset(frame)], [{"filterType": "DeviceId", "filterValue": KEY}], T0)
         return model
 
     def test_device_sending_every_4_seconds_with_pauses_of_90_seconds(self):
@@ -853,8 +583,8 @@ class TestSchema(OperatorTestCase):
 
 
 class TestConfig(unittest.TestCase):
-    NAMES = ("check_data_anomalies", "check_data_extreme_outlier", "check_data_schema", "check_receive_time_outlier")
-    DEFAULTS = [False, True, True, True]
+    NAMES = ("check_data_extreme_outlier", "check_data_schema", "check_receive_time_outlier")
+    DEFAULTS = [True, True, True]
 
     def values(self, config):
         return [getattr(config, n) for n in self.NAMES]
@@ -872,11 +602,11 @@ class TestConfig(unittest.TestCase):
         for raw, expected in (("True", True), ("true", True), ("TRUE", True), (" 1 ", True), ("false", False),
                               ("False", False), ("0", False), ("no", False)):
             with self.subTest(raw=raw):
-                self.assertEqual(self.values(CustomConfig({n: raw for n in self.NAMES})), [expected] * 4)
+                self.assertEqual(self.values(CustomConfig({n: raw for n in self.NAMES})), [expected] * 3)
 
     def test_real_bools_pass_through(self):
-        c = CustomConfig({"check_data_anomalies": True, "check_data_extreme_outlier": False})
-        self.assertIs(c.check_data_anomalies, True)
+        c = CustomConfig({"check_data_schema": True, "check_data_extreme_outlier": False})
+        self.assertIs(c.check_data_schema, True)
         self.assertIs(c.check_data_extreme_outlier, False)
 
 
@@ -898,26 +628,24 @@ class TestTrain(OperatorTestCase):
                 mock.patch("main.ray.get", side_effect=ray_get or (lambda r: r)):
             return op.train(model, logger)
 
-    def test_good_history_gives_a_model_and_the_task_gets_the_flag_and_the_meta(self):
-        op = self.operator(None, check_data_anomalies=True)
+    def test_good_history_gives_a_model_and_the_task_gets_the_meta(self):
+        op = self.operator(None)
         remote = mock.Mock(side_effect=lambda *a: fit_anomaly_model(*a))
         model = self.run_train(op, history=[FakeDataset(history_frame())], remote=remote)
         self.assertEqual(list(model.devices), ["d1"])
         self.assertEqual(model.trained_until, T0)
         args = remote.call_args.args
-        self.assertEqual((args[1], args[2], args[3]), (self.META, T0, True))
+        self.assertEqual((args[1], args[2]), (self.META, T0))
         self.assertIsNone(op._retry_at)
 
-    def test_the_three_counters_are_logged(self):
-        devices = {"a": profile(curve=stub_curve()), "b": profile(curve=load_curve(), device_type="load_device"),
-                   "c": profile()}
+    def test_the_device_count_is_logged(self):
+        devices = {"a": profile(), "b": profile(), "c": profile()}
         op = self.operator(None)
         logger = mock.Mock()
         model = self.run_train(op, history=[object()], remote=lambda *a: (anomaly_model(devices), ["note"], False),
                                logger=logger)
         self.assertEqual(len(model.devices), 3)
-        logger.log_metrics.assert_called_once_with(
-            {"devices_trained": 3, "devices_with_curve_model": 1, "devices_with_load_model": 1})
+        logger.log_metrics.assert_called_once_with({"devices_trained": 3})
 
     def test_a_failing_metrics_store_does_not_stop_the_training(self):
         op = self.operator(None)
@@ -1082,12 +810,9 @@ class TestManifest(unittest.TestCase):
         self.assertEqual(manifest, {
             "inputs": entries(("value", "float"), ("original_input_ids", "string")),
             "outputs": entries(("type", "string"), ("sub_type", "string"), ("value", "string"),
-                               ("initial_phase", "string"), ("mean", "float"), ("threshold", "float"),
-                               ("device_id", "string"), ("start_time", "string"), ("end_time", "string"),
-                               ("original_reconstructed_curves", "string")),
-            "config_values": entries(("logger_level", "string"), ("check_data_anomalies", "bool"),
-                                     ("check_data_extreme_outlier", "bool"), ("check_data_schema", "bool"),
-                                     ("check_receive_time_outlier", "bool")),
+                               ("mean", "float"), ("threshold", "float"), ("device_id", "string")),
+            "config_values": entries(("logger_level", "string"), ("check_data_extreme_outlier", "bool"),
+                                     ("check_data_schema", "bool"), ("check_receive_time_outlier", "bool")),
         })
 
 

@@ -23,10 +23,6 @@
       "type": "string"
     },
     {
-      "name": "initial_phase",
-      "type": "string"
-    },
-    {
       "name": "mean",
       "type": "float"
     },
@@ -37,28 +33,12 @@
     {
       "name": "device_id",
       "type": "string"
-    },
-    {
-      "name": "start_time",
-      "type": "string"
-    },
-    {
-      "name": "end_time",
-      "type": "string"
-    },
-    {
-      "name": "original_reconstructed_curves",
-      "type": "string"
     }
   ],
   "config_values": [
     {
       "name": "logger_level",
       "type": "string"
-    },
-    {
-      "name": "check_data_anomalies",
-      "type": "bool"
     },
     {
       "name": "check_data_extreme_outlier",

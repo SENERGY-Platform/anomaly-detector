@@ -14,7 +14,7 @@
    limitations under the License.
 """
 
-__all__ = ("SCHEMA_VERSION", "WINDOW", "K_SIGMA", "DeviceProfile", "AnomalyModel")
+__all__ = ("SCHEMA_VERSION", "K_SIGMA", "DeviceProfile", "AnomalyModel")
 
 import dataclasses
 import datetime
@@ -24,23 +24,18 @@ import mlflow.pyfunc
 
 if typing.TYPE_CHECKING:
     # The detectors import K_SIGMA from this module, so this module imports them for type hints only.
-    from .detectors.continuous_curve import ContCurveModel
     from .detectors.extreme_value import ValueStats
-    from .detectors.load_curve import LoadCurveModel
     from .detectors.receive_time import GapStats
 
-SCHEMA_VERSION = 1
-WINDOW = 205
+# 2: without the curve model of a device.
+SCHEMA_VERSION = 2
 K_SIGMA = 5
 
 
 @dataclasses.dataclass
 class DeviceProfile:
-    device_type: str  # "cont_device" or "load_device"
-    baseline: float  # median of the history
     values: typing.Optional["ValueStats"]
     gaps: typing.Optional["GapStats"]
-    curve: typing.Union["ContCurveModel", "LoadCurveModel", None]
 
 
 class AnomalyModel(mlflow.pyfunc.PythonModel):

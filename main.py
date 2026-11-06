@@ -33,9 +33,7 @@ from operator_lib.util import clock
 from operator_lib.util.helpers import HistoryNeedsRayError, provide_historic_data, provide_historic_frames_local
 
 from algo import live
-from algo.detectors import continuous_curve, extreme_value, load_curve, receive_time, schema
-from algo.detectors.continuous_curve import ContCurveModel
-from algo.detectors.load_curve import LoadCurveModel
+from algo.detectors import extreme_value, receive_time, schema
 from algo.history import last_arrivals, read_last_arrivals
 from algo.model import SCHEMA_VERSION, AnomalyModel
 from algo.training import train_anomaly_model
@@ -74,15 +72,13 @@ class CustomConfig(Config):
     # Redeclared so the manifest lists it, with the library's default.
     logger_level: str = "warning"
 
-    check_data_anomalies: bool = False
     check_data_extreme_outlier: bool = True
     check_data_schema: bool = True
     check_receive_time_outlier: bool = True
 
     def __init__(self, d, **kwargs):
         super().__init__(d, **kwargs)
-        for name in ("check_data_anomalies", "check_data_extreme_outlier", "check_data_schema",
-                     "check_receive_time_outlier"):
+        for name in ("check_data_extreme_outlier", "check_data_schema", "check_receive_time_outlier"):
             setattr(self, name, _parse_bool(getattr(self, name), getattr(type(self), name)))
 
 
@@ -95,13 +91,9 @@ class OperatorOutputs(Outputs):
     type: str
     sub_type: str
     value: str
-    initial_phase: str
     mean: float
     threshold: float
     device_id: str
-    start_time: str
-    end_time: str
-    original_reconstructed_curves: str
 
 
 _unwrap_warned = False
@@ -206,8 +198,7 @@ class Operator(MLOperator):
         unreadable = datasets is None
         if datasets is not None:
             try:
-                trained, notes, history_failed = ray.get(train_anomaly_model.remote(
-                    datasets, topic_meta, now, self.config.check_data_anomalies))
+                trained, notes, history_failed = ray.get(train_anomaly_model.remote(datasets, topic_meta, now))
                 for note in notes:
                     logger.info(note)
                 unreadable = history_failed
@@ -234,13 +225,8 @@ class Operator(MLOperator):
             trained = AnomalyModel(SCHEMA_VERSION, now, {**previous.devices, **trained.devices})
         # Read by the content test to tell a training on real history from one on nothing.
         if train_logger is not None:
-            profiles = list(trained.devices.values())
             try:
-                train_logger.log_metrics({
-                    "devices_trained": len(profiles),
-                    "devices_with_curve_model": sum(isinstance(p.curve, ContCurveModel) for p in profiles),
-                    "devices_with_load_model": sum(isinstance(p.curve, LoadCurveModel) for p in profiles),
-                })
+                train_logger.log_metrics({"devices_trained": len(trained.devices)})
             except Exception:
                 # A metrics store that is down must not keep the trained model from the operator.
                 logger.exception("could not log the training metrics")
@@ -291,13 +277,6 @@ class Operator(MLOperator):
 
         anomaly_model = _unwrap(model)
         profile = anomaly_model.profile(key) if anomaly_model is not None else None
-        is_load = profile is not None and profile.device_type == "load_device"
-        finished = None
-        if is_load:
-            try:
-                finished = st.run.update(ts, value, profile.baseline)[1]
-            except Exception:
-                logger.exception("run tracking failed")
 
         results = []
         checks = []
@@ -305,11 +284,6 @@ class Operator(MLOperator):
             checks.append(("extreme value", lambda: extreme_value.check(profile, st, key, value)))
         if self.config.check_receive_time_outlier:
             checks.append(("receive time", lambda: self._under_lock(receive_time.check, profile, st, key, ts)))
-        if self.config.check_data_anomalies and profile is not None:
-            if isinstance(profile.curve, ContCurveModel):
-                checks.append(("curve", lambda: continuous_curve.check(profile.curve, st, key, ts, value)))
-            elif isinstance(profile.curve, LoadCurveModel) and finished is not None:
-                checks.append(("load curve", lambda: load_curve.check(profile.curve, key, finished, profile.baseline)))
         for name, check in checks:
             try:
                 result = check()
