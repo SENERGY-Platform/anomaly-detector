@@ -17,6 +17,7 @@
 import dotenv
 dotenv.load_dotenv()
 
+import concurrent.futures
 import datetime
 import math
 import threading
@@ -29,13 +30,13 @@ import ray
 from operator_lib import util
 from operator_lib.util import MLOperator, Config, Inputs, Outputs, logger
 from operator_lib.util import clock
-from operator_lib.util.helpers import provide_historic_data
+from operator_lib.util.helpers import HistoryNeedsRayError, provide_historic_data, provide_historic_frames_local
 
 from algo import live
 from algo.detectors import continuous_curve, extreme_value, load_curve, receive_time, schema
 from algo.detectors.continuous_curve import ContCurveModel
 from algo.detectors.load_curve import LoadCurveModel
-from algo.history import read_last_arrivals
+from algo.history import last_arrivals, read_last_arrivals
 from algo.model import SCHEMA_VERSION, AnomalyModel
 from algo.training import train_anomaly_model
 
@@ -124,6 +125,17 @@ def _unwrap(model) -> typing.Optional[AnomalyModel]:
 def _topic_meta() -> typing.List[dict]:
     topics = util.OperatorConfig(util.load_operator_config_json(util.DeploymentConfig())).inputTopics
     return [{"filterType": t.filterType, "filterValue": t.filterValue} for t in topics]
+
+
+def _frames_in_pod(duration: datetime.timedelta):
+    """The history of the inputs as pandas frames, read in the pod, at most RESTORE_TIMEOUT_S long: the library
+    sets no timeout on the database connection, and init() holds back consuming meanwhile. A read that runs out
+    goes on in its thread, and its result is dropped."""
+    pool = concurrent.futures.ThreadPoolExecutor(max_workers=1, thread_name_prefix="restore")
+    try:
+        return pool.submit(provide_historic_frames_local, duration).result(timeout=RESTORE_TIMEOUT_S)
+    finally:
+        pool.shutdown(wait=False)
 
 
 def _aware(t: datetime.datetime) -> datetime.datetime:
@@ -337,16 +349,19 @@ class Operator(MLOperator):
             if not bounds:
                 return
             duration = min(max(bounds.values()) + RESTORE_MARGIN, RESTORE_MAX)
-            ray.init(address=self.config.ray_url)
             try:
-                task = read_last_arrivals.remote(provide_historic_data(duration), _topic_meta())
-                try:
-                    arrivals, notes, failed = ray.get(task, timeout=RESTORE_TIMEOUT_S)
-                except Exception:
-                    ray.cancel(task)
-                    raise
-            finally:
-                ray.shutdown()
+                # Over the database connection, in the pod: a Ray task waits for a free worker of the cluster,
+                # minutes on a busy one, while the consumer has not started yet.
+                frames = _frames_in_pod(duration)
+            except concurrent.futures.TimeoutError:
+                raise
+            except Exception as ex:
+                # An input only Kafka has (HistoryNeedsRayError), or one input that cannot be read, which fails
+                # the whole read here; the Ray task reads the others and leaves only that one out.
+                logger.info(f"history not read in the pod ({type(ex).__name__}: {ex}), reading it in a Ray task")
+                arrivals, notes, failed = self._last_arrivals_in_ray(duration)
+            else:
+                arrivals, notes, failed = last_arrivals(frames, _topic_meta())
             for note in notes:
                 logger.info(note)
             if failed:
@@ -369,6 +384,19 @@ class Operator(MLOperator):
             logger.info(f"restored the last arrival of {restored} devices")
         except Exception:
             logger.exception("could not restore the last arrivals")
+
+    def _last_arrivals_in_ray(self, duration: datetime.timedelta):
+        """The last arrivals read in a Ray task, for an input whose history only Kafka has."""
+        ray.init(address=self.config.ray_url)
+        try:
+            task = read_last_arrivals.remote(provide_historic_data(duration), _topic_meta())
+            try:
+                return ray.get(task, timeout=RESTORE_TIMEOUT_S)
+            except Exception:
+                ray.cancel(task)
+                raise
+        finally:
+            ray.shutdown()
 
     def _check_outages(self):
         if not self.config.check_receive_time_outlier:

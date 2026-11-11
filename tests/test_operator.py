@@ -21,6 +21,7 @@ import os
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 import unittest
 from unittest import mock
@@ -30,6 +31,7 @@ import pandas as pd
 import torch
 
 from operator_lib.util import clock
+from operator_lib.util.helpers import HistoryNeedsRayError
 
 import main
 from main import HISTORY_RETRIES, HISTORY_RETRY_S, LAG_LIMIT_S, CustomConfig, Operator
@@ -706,16 +708,20 @@ class TestRestore(OperatorTestCase):
 
     META = [{"filterType": "DeviceId", "filterValue": KEY}]
 
-    def restored(self, last, devices=None, history=None, ray_get=None):
+    def restored(self, last, devices=None, history=None, ray_get=None, frames_error=None, datasets=None):
+        """frames_error: what reading the history in the pod raises, after which it is read in a Ray task;
+        datasets: what the Ray task reads, the history by default."""
         op = self.operator(devices or {KEY: profile(gaps=GapStats(1.0, 0.1, 1000, 1.2))})  # upper limit 5 minutes
         if history is None:
-            history = [FakeDataset(pd.DataFrame({"time": [last.replace(tzinfo=None) - MINUTE, last.replace(tzinfo=None)],
-                                                 "value": [100.0, 100.0]}))]
-        self.request = mock.Mock(return_value=history)
+            history = [pd.DataFrame({"time": [last.replace(tzinfo=None) - MINUTE, last.replace(tzinfo=None)],
+                                     "value": [100.0, 100.0]})]
+        self.frames = mock.Mock(side_effect=frames_error) if frames_error else mock.Mock(return_value=history)
+        self.request = mock.Mock(return_value=datasets or [FakeDataset(frame) for frame in history])
         self.ray = mock.Mock()
         self.ray.get.side_effect = ray_get or (lambda ref, timeout=None: ref)
         self.task = mock.Mock(remote=mock.Mock(side_effect=last_arrivals))
-        with mock.patch("main.provide_historic_data", self.request), mock.patch("main.ray", self.ray), \
+        with mock.patch("main.provide_historic_frames_local", self.frames), \
+                mock.patch("main.provide_historic_data", self.request), mock.patch("main.ray", self.ray), \
                 mock.patch("main.read_last_arrivals", self.task), mock.patch("main._topic_meta", return_value=self.META):
             op._restore_arrivals(self.wall)
         return op
@@ -734,13 +740,22 @@ class TestRestore(OperatorTestCase):
         op._check_outages()
         self.assertEqual(self.reports(), [{"type": "time", "sub_type": "high", "value": 5.5, "mean": 1.0,
                                            "threshold": 5.0, "device_id": KEY}])
-        self.ray.init.assert_called_once()
-        self.ray.shutdown.assert_called_once()
 
-    def test_the_history_is_read_in_a_ray_task_not_in_the_pod(self):
+    def test_the_history_is_read_in_the_pod_without_ray(self):
         self.restored(last=at(-2))
+        self.frames.assert_called_once()
+        self.request.assert_not_called()
+        self.ray.init.assert_not_called()
+        self.task.remote.assert_not_called()
+
+    def test_an_input_only_kafka_has_is_read_in_a_ray_task(self):
+        op = self.restored(last=at(-2), frames_error=HistoryNeedsRayError("only in Kafka"))
         self.task.remote.assert_called_once_with(self.request.return_value, self.META)
         self.assertEqual(self.ray.get.call_args.kwargs, {"timeout": main.RESTORE_TIMEOUT_S})
+        self.ray.init.assert_called_once()
+        self.ray.shutdown.assert_called_once()
+        self.assertEqual(op._live[KEY].last_arrival, at(-2))
+        self.assertTrue(op._live[KEY].armed)
 
     def test_a_device_past_its_bound_at_the_start_is_left_to_the_pod_before(self):
         op = self.restored(last=at(-5))
@@ -753,9 +768,7 @@ class TestRestore(OperatorTestCase):
         op = self.operator({KEY: profile(gaps=GapStats(1.0, 0.1, 1000, 1.2))})
         self.infer(op, 100.0, at(0))
         frame = pd.DataFrame({"time": [at(-1).replace(tzinfo=None)], "value": [100.0]})
-        with mock.patch("main.provide_historic_data", return_value=[FakeDataset(frame)]), \
-                mock.patch("main.ray", mock.Mock(get=lambda ref, timeout=None: ref)), \
-                mock.patch("main.read_last_arrivals", mock.Mock(remote=last_arrivals)), \
+        with mock.patch("main.provide_historic_frames_local", return_value=[frame]), \
                 mock.patch("main._topic_meta", return_value=self.META):
             op._restore_arrivals(at(0))
         self.assertEqual(op._live[KEY].last_arrival, at(0))
@@ -764,22 +777,50 @@ class TestRestore(OperatorTestCase):
         devices = {KEY: profile(gaps=GapStats(1.0, 0.1, 1000, 1.2)), "b": profile(gaps=GapStats(10.0, 1.0, 1000, 12.0)),
                    "c": profile(gaps=None)}
         self.restored(last=at(-2), devices=devices)
-        self.request.assert_called_once_with(datetime.timedelta(minutes=36) + main.RESTORE_MARGIN)
+        self.frames.assert_called_once_with(datetime.timedelta(minutes=36) + main.RESTORE_MARGIN)
         self.restored(last=at(-2), devices={KEY: profile(gaps=GapStats(600.0, 1.0, 1000, 6000.0))})
-        self.request.assert_called_once_with(main.RESTORE_MAX)
+        self.frames.assert_called_once_with(main.RESTORE_MAX)
+        self.restored(last=at(-2), frames_error=HistoryNeedsRayError("only in Kafka"))
+        self.request.assert_called_once_with(datetime.timedelta(minutes=5) + main.RESTORE_MARGIN)
 
     def test_a_device_the_model_has_no_bound_for_is_not_armed_and_the_others_are(self):
         frame = pd.DataFrame({"time": [at(-1).replace(tzinfo=None)], "value": [100.0]})
         self.META = [{"filterType": "DeviceId", "filterValue": "other"}, {"filterType": "DeviceId", "filterValue": KEY}]
-        op = self.restored(last=at(-1), history=[FakeDataset(frame), FakeDataset(frame)])
+        op = self.restored(last=at(-1), history=[frame, frame])
         self.assertNotIn("other", op._live)
         self.assertEqual(op._live[KEY].last_arrival, at(-1))
 
-    def test_an_unreadable_history_does_not_stop_the_start(self):
+    def test_an_input_unreadable_in_the_pod_leaves_out_only_that_input_in_the_ray_task(self):
+        frame = pd.DataFrame({"time": [at(-1).replace(tzinfo=None)], "value": [100.0]})
+        self.META = [{"filterType": "DeviceId", "filterValue": "other"}, {"filterType": "DeviceId", "filterValue": KEY}]
+        devices = {KEY: profile(gaps=GapStats(1.0, 0.1, 1000, 1.2)), "other": profile(gaps=GapStats(1.0, 0.1, 1000, 1.2))}
+        with mock.patch("main.logger") as log:
+            op = self.restored(last=at(-1), devices=devices, frames_error=RuntimeError('relation "x" does not exist'),
+                               datasets=[UnreadableDataset(), FakeDataset(frame)])
+        log.exception.assert_not_called()
+        log.warning.assert_called_once()
+        self.task.remote.assert_called_once()
+        self.assertNotIn("other", op._live)
+        self.assertEqual(op._live[KEY].last_arrival, at(-1))
+
+    def test_a_read_in_the_pod_that_runs_out_ends_the_restore_without_ray(self):
+        release = threading.Event()
+
+        def hanging(duration):
+            release.wait(5)
+            return []
+        with mock.patch.object(main, "RESTORE_TIMEOUT_S", 0.05), mock.patch("main.logger") as log:
+            op = self.restored(last=at(-2), frames_error=hanging)
+        release.set()
+        log.exception.assert_called_once()
+        self.ray.init.assert_not_called()
+        self.assertEqual(op._live, {})
+
+    def test_a_ray_task_that_does_not_finish_does_not_stop_the_start(self):
         def timeout(refs, timeout=None):
             raise TimeoutError("no worker free")
         with mock.patch("main.logger") as log:
-            op = self.restored(last=at(-2), ray_get=timeout)
+            op = self.restored(last=at(-2), ray_get=timeout, frames_error=HistoryNeedsRayError("only in Kafka"))
         log.exception.assert_called_once()
         self.ray.cancel.assert_called_once()
         self.ray.shutdown.assert_called_once()

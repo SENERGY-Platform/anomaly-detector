@@ -24,6 +24,8 @@ import ray
 
 
 def _read_frame(ds) -> pd.DataFrame:
+    if isinstance(ds, pd.DataFrame):  # read without Ray, provide_historic_frames_local
+        return ds
     frame = (ray.get(ds) if isinstance(ds, ray.ObjectRef) else ds).to_pandas()
     return frame
 

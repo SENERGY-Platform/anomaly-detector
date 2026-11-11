@@ -35,7 +35,7 @@ A device is a load device when, on the minute grid of its history, the 5 % quant
 
 ## Training
 
-The operator is an `MLOperator` of analytics-operator-lib-python. At start, when no model is registered in MLflow, and once a day (Berlin date) it trains on 50 days of the history of its inputs. The model holds one profile per device and is stored in MLflow. The training runs as a Ray task on the cluster (`algo/training.py`); the image starts the operator with `uv run`, so Ray builds the environment of `uv.lock`, torch included, on the workers. There is no learning phase.
+The operator is an `MLOperator` of analytics-operator-lib-python. At start, when no model is registered in MLflow, and once a day (Berlin date) it trains on 50 days of the history of its inputs. The model holds one profile per device and is stored in MLflow. The training runs as a Ray task on the cluster (`algo/training.py`); the image starts the operator with `uv run`, so Ray builds the environment of `uv.lock`, torch included, on the workers. There is no learning phase. The last arrivals read back at start are read in the pod over the database connection, not in a Ray task, so a busy cluster does not delay the start of consuming; the history is read in a Ray task only for an input whose history is in Kafka alone, or after a read in the pod failed for another reason than its time limit.
 
 A history that cannot be read is tried again every 10 minutes, six times; after that the day counts as trained and the previous profiles stay. An input from another operator has only the retention of its Kafka topic as history, so its curve model rarely reaches the three days it needs.
 
