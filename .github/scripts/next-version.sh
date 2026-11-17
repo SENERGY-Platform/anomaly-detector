@@ -31,7 +31,7 @@ fi
 if [[ "$branch" =~ ^release/v([0-9]+)$ ]]; then
   IFS=. read -r next_major _ <<< "${next#v}"
   if [ "$next_major" != "${BASH_REMATCH[1]}" ]; then
-    echo "$branch would release $next; a breaking change belongs on master" >&2
+    echo "$branch would release $next; a breaking change belongs on main" >&2
     exit 1
   fi
 fi
