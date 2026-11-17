@@ -42,7 +42,7 @@ Consuming waits while the operator trains. The watchdog pauses from the start of
 
 [`scripts/replay_history.py`](scripts/replay_history.py) replays the history of real devices through the operator and counts its reports, also with injected anomalies. It measures; it is not a test.
 
-[`docs/known-limitations-and-open-decisions.md`](docs/known-limitations-and-open-decisions.md) lists what is not verified yet and what is still to be decided.
+[`docs/known-limitations-and-open-decisions.md`](docs/known-limitations-and-open-decisions.md) lists what is not verified yet and what is still to be decided; [`docs/extreme-value-bounds-and-hysteresis.md`](docs/extreme-value-bounds-and-hysteresis.md) gives the measurement on public data that the bounds of extreme values and the end of an excursion rest on.
 
 ## Configuration
 

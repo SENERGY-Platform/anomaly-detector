@@ -180,7 +180,7 @@ class TestExtreme(OperatorTestCase):
         self.assertIsNone(self.infer(op, 180.0, T0))
 
     def test_device_in_standby_reports_no_low(self):
-        # Standby at the 0.01 % quantile puts the lower bound below zero.
+        # Standby at the lower end of the range puts the lower bound below zero.
         op = self.operator({KEY: profile(ValueStats(300.0, 5.0, 800.0), None)})
         self.assertIsNone(self.infer(op, 5.0, T0))
         self.assertIsNone(self.infer(op, 0.0, at(1)))

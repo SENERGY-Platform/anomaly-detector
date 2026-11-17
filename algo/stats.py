@@ -35,7 +35,7 @@ MIN_SAMPLES = 30
 # VALUE_MIN_MARGIN of its larger end, since a constant device has no range at all.
 # A number of values rather than a quantile: 50 days hold about 1,200 values of a device that sends every hour and
 # 72,000 of one that sends every minute, and a quantile such as 99.99 % is the maximum of the one, so that a single
-# outlier hides itself for 50 days, and the 7th largest value of the other, too close for a margin of 50 %.
+# outlier hides itself for 50 days, and about the 8th largest value of the other, too close for a margin of 50 %.
 # Measured on public data in docs/extreme-value-bounds-and-hysteresis.md.
 # The range rather than mean and standard deviation: a device with two modes, such as standby and a heating element,
 # has its mean + 5 sigma inside the upper mode.
