@@ -315,7 +315,7 @@ class Operator(MLOperator):
         try:
             value = float(data["value"])
         except (KeyError, TypeError, ValueError):
-            logger.warning("message without a numeric value")
+            logger.debug(f"message of {key} without a numeric value")
             return []
         if not math.isfinite(value):
             return []

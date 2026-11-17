@@ -129,6 +129,13 @@ class TestRun(OperatorTestCase):
         _, results, _ = op.infer(op.model, {"value": None}, "s", KEY, T0)
         self.assertIsNone(results)
 
+    def test_messages_without_value_do_not_flood_the_log(self):
+        op = self.operator({KEY: profile()})
+        with mock.patch("main.logger") as log:
+            for value in (None, "n/a"):
+                op.infer(op.model, {"value": value}, "s", KEY, T0)
+        log.warning.assert_not_called()
+
 
 class TestExtreme(OperatorTestCase):
     def test_spike_gives_extreme_value_with_the_upper_limit_as_threshold(self):
