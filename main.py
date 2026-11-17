@@ -47,7 +47,8 @@ HISTORY_TIMEOUT_S = 300
 # often, this far apart, before the day counts as trained on what could be read.
 HISTORY_RETRY_S = 600
 HISTORY_RETRIES = 6
-# A message older than this (wall clock minus Kafka time) means the operator is catching up on a backlog.
+# After a training, the first message less old than this (wall clock minus Kafka time) shows that the backlog
+# of the training is worked off.
 LAG_LIMIT_S = 120
 WATCHDOG_INTERVAL_S = 5
 # After a training the watchdog stays silent only this long for a message that does not come.
@@ -152,6 +153,7 @@ class Device:
         self.values = SampleBuffer(value_stats)
         self.gaps = SampleBuffer(gap_stats)
         self.last_arrival: typing.Optional[datetime.datetime] = None  # message time of its newest message
+        self.seen: typing.Optional[datetime.datetime] = None  # when the operator last received a message of it
         self.armed = False  # whether its silence may be reported, once per outage
         self.extreme_side: typing.Optional[str] = None  # "high" or "low" while its values are beyond a bound
 
@@ -167,7 +169,6 @@ class Operator(MLOperator):
         self._devices: typing.Dict[str, Device] = {}
         self._paused = False  # training or its aftermath: no missing-message reports
         self._pause_until: typing.Optional[float] = None  # monotonic end of the pause once the training is over
-        self._catching_up = False  # the last message was old: a backlog, not an outage
         self._retry_at: typing.Optional[float] = None  # monotonic time of the next training after an unreadable history
         self._history_retries = 0
         self._stop_event = threading.Event()
@@ -302,8 +303,7 @@ class Operator(MLOperator):
         key = str(device_id or data.get("original_input_ids") or "")
         lag = (self._now() - ts).total_seconds()
         with self._lock:
-            self._catching_up = lag >= LAG_LIMIT_S
-            if self._paused and not self._catching_up:
+            if self._paused and lag < LAG_LIMIT_S:
                 self._paused = False
             device = self._devices.get(key)
             if device is None:
@@ -322,7 +322,7 @@ class Operator(MLOperator):
 
         with self._lock:
             if self.config.check_receive_time_outlier:
-                self._arrive(device, profile, ts)
+                self._arrive(device, profile, ts, self._now())
             if self.config.check_data_extreme_outlier:
                 result = self._extreme(key, device, profile, value)
                 if result is not None:
@@ -330,7 +330,10 @@ class Operator(MLOperator):
         return []
 
     @staticmethod
-    def _arrive(device: Device, profile: typing.Optional[DeviceProfile], at: datetime.datetime):
+    def _arrive(device: Device, profile: typing.Optional[DeviceProfile], at: datetime.datetime,
+                now: datetime.datetime):
+        # Also for a message out of order: while the operator works off a backlog, the device is not silent.
+        device.seen = now
         last = device.last_arrival
         if last is not None and at <= last:
             return  # out of order or a duplicate: neither a gap nor a newer message
@@ -409,7 +412,7 @@ class Operator(MLOperator):
                     if device is None:
                         device = self._devices[key] = Device()
                     if device.last_arrival is None:
-                        device.last_arrival = last
+                        device.last_arrival = device.seen = last
                         device.armed = True
                         restored += 1
             logger.info(f"restored the last arrival of {restored} devices")
@@ -436,15 +439,17 @@ class Operator(MLOperator):
         reports = []
         with self._lock:
             paused = self._paused and (self._pause_until is None or time.monotonic() < self._pause_until)
-            if paused or self._catching_up:
+            if paused:
                 return
             now = self._now()
             for key, device in self._devices.items():
-                if not device.armed or device.last_arrival is None:
+                if not device.armed or device.seen is None:
                     continue
                 profile = anomaly_model.profile(key) if anomaly_model is not None else None
                 stats = profile.gaps if profile is not None and profile.gaps is not None else device.gaps.stats()
-                silent = _minutes(now - device.last_arrival)
+                # Counted from the last message received, not from its message time: a device whose messages
+                # come late is not silent, and a late message of one device hides no other.
+                silent = _minutes(now - device.seen)
                 if stats is not None and silent > stats.upper():
                     device.armed = False  # armed again by its next message
                     reports.append({"type": "time", "sub_type": "high", "value": round(silent, 2),

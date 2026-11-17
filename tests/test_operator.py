@@ -316,6 +316,29 @@ class TestOutages(OperatorTestCase):
         op._check_outages()
         self.assertEqual(self.reports(), [])
 
+    def test_a_late_message_of_one_device_does_not_hide_the_outage_of_another(self):
+        silent_after_5 = profile(gaps=GapStats(1.0, 1.2))
+        op = self.operator({"a": silent_after_5, "b": silent_after_5})
+        self.wall = at(0)
+        self.infer(op, 100.0, at(0), device_id="a")
+        self.infer(op, 100.0, at(-30), device_id="b")  # sent 30 minutes ago
+        self.wall = at(6)
+        op._check_outages()
+        self.assertIn("a", [r["device_id"] for r in self.reports()])
+
+    def test_a_message_out_of_order_still_shows_the_device_is_alive(self):
+        op = self.armed()
+        self.wall = at(10)
+        self.infer(op, 100.0, at(10))
+        self.wall = at(10.5)
+        self.infer(op, 100.0, at(5))
+        self.wall = at(15)
+        op._check_outages()
+        self.assertEqual(self.reports(), [])
+        self.wall = at(16)
+        op._check_outages()
+        self.assertEqual([r["value"] for r in self.reports()], [5.5])
+
     def test_flag_off_gives_no_report(self):
         op = self.armed(check_receive_time_outlier=False)
         self.wall = at(30)
