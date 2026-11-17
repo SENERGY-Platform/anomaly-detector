@@ -14,9 +14,6 @@
    limitations under the License.
 """
 
-import dotenv
-dotenv.load_dotenv()
-
 import concurrent.futures
 import datetime
 import json

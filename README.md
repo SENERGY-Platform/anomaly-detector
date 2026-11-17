@@ -58,6 +58,7 @@ An empty value means the default. The configuration values of version 1 (`init_p
 ```sh
 uv sync
 uv run python -m unittest discover -s tests -t .
+uv run --env-file .env main.py  # locally, with CONFIG and the Kafka settings in .env
 ```
 
 ## Versions

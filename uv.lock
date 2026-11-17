@@ -32,7 +32,6 @@ dependencies = [
     { name = "numpy" },
     { name = "operator-lib" },
     { name = "pandas" },
-    { name = "python-dotenv" },
 ]
 
 [package.metadata]
@@ -40,7 +39,6 @@ requires-dist = [
     { name = "numpy", specifier = "==1.26.4" },
     { name = "operator-lib", git = "https://github.com/SENERGY-Platform/analytics-operator-lib-python?rev=v1.14.0" },
     { name = "pandas", specifier = "==2.2.3" },
-    { name = "python-dotenv", specifier = "==1.2.4" },
 ]
 
 [[package]]
