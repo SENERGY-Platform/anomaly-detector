@@ -23,12 +23,10 @@ import typing
 import mlflow.pyfunc
 
 if typing.TYPE_CHECKING:
-    # For type hints only: the detectors need not be loaded with the model.
-    from .detectors.extreme_value import ValueStats
-    from .detectors.receive_time import GapStats
+    from .stats import GapStats, ValueStats
 
-# 2: without the curve model of a device.
-SCHEMA_VERSION = 2
+# 3: the statistics of algo.stats, without a curve model.
+SCHEMA_VERSION = 3
 
 
 @dataclasses.dataclass

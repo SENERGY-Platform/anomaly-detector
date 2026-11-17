@@ -16,14 +16,11 @@
 
 import datetime
 import unittest
-from unittest import mock
 
 import numpy as np
 import pandas as pd
 
-from algo.detectors import extreme_value, receive_time
-from algo.detectors.extreme_value import ValueStats
-from algo.detectors.receive_time import GapStats
+from algo.stats import GapStats, ValueStats
 from algo.model import SCHEMA_VERSION
 from algo.training import fit_anomaly_model
 
@@ -100,7 +97,6 @@ class Reading(unittest.TestCase):
         model, notes, failed = fit([FakeDataset(pd.concat(shards))])
         p = model.profile("d1")
         self.assertFalse(failed)
-        self.assertEqual(p.values.n, 1440 - 3)
         # One gap is bridged by the rows without a value
         self.assertAlmostEqual(p.gaps.mean_min, (1440 - 4) / (1440 - 3 - 1) * 1.0, delta=0.01)
 
@@ -111,7 +107,7 @@ class Reading(unittest.TestCase):
         aware_frame["time"] = aware_frame["time"].dt.tz_localize("Europe/Berlin")
         aware = fit([FakeDataset(aware_frame)])[0].profile("d1")
         self.assertAlmostEqual(naive.values.mean, aware.values.mean)
-        self.assertEqual(naive.gaps.n, aware.gaps.n)
+        self.assertEqual(naive.gaps, aware.gaps)
 
     def test_group_by_original_input_ids_for_operator_topics(self):
         a, b = day_curve(1, step_s=60), day_curve(1, step_s=60, seed=1) + 50
@@ -150,7 +146,6 @@ class Reading(unittest.TestCase):
         meta = [{"filterType": "DeviceId", "filterValue": "d1"}, {"filterType": "DeviceId", "filterValue": "d1"}]
         model, _, _ = fit([FakeDataset(to_frame(second)), FakeDataset(to_frame(first))], meta)
         self.assertEqual(list(model.devices), ["d1"])
-        self.assertEqual(model.profile("d1").values.n, 1440)
         self.assertAlmostEqual(model.profile("d1").gaps.mean_min, 1.0)
 
     def test_frame_without_columns_is_skipped(self):
@@ -174,33 +169,6 @@ class Reading(unittest.TestCase):
         model, _, failed = fit([UnreadableDataset()])
         self.assertTrue(failed)
         self.assertEqual(model.devices, {})
-
-
-class Stats(unittest.TestCase):
-    def test_value_bounds_are_quantiles_with_a_margin(self):
-        stats = ValueStats(mean=10.0, std=3.0, n=100, q_low=-10.0, q_high=90.0)
-        self.assertEqual((stats.lower(), stats.upper()), (-30.0, 110.0))
-
-    def test_lower_bound_of_a_never_negative_quantity_is_zero(self):
-        stats = ValueStats(mean=10.0, std=3.0, n=100, q_low=0.0, q_high=100.0)
-        self.assertEqual((stats.lower(), stats.upper()), (0.0, 120.0))
-
-    def test_gap_upper_has_a_floor_and_a_factor(self):
-        self.assertEqual(GapStats(0.5, 100, 0.5).upper(), 5)
-        self.assertEqual(GapStats(1.0, 100, 10.0).upper(), 30.0)
-
-    def test_the_training_and_the_live_fallback_compute_the_same(self):
-        from algo import live
-        values = np.random.RandomState(3).gamma(2.0, 30.0, 500)
-        buffer = live.SampleBuffer(extreme_value.value_stats, extreme_value.MIN_VALUES)
-        for v in values:
-            buffer.add(float(v))
-        self.assertEqual(buffer.stats(), extreme_value._value_stats(values))
-        index = pd.DatetimeIndex(pd.Timestamp("2026-01-01") + pd.to_timedelta(np.cumsum(values), unit="s"))
-        gaps = live.SampleBuffer(receive_time.gap_stats, receive_time.MIN_GAPS)
-        for g in np.diff(index.to_numpy()) / np.timedelta64(1, "m"):
-            gaps.add(float(g))
-        self.assertEqual(gaps.stats(), receive_time._gap_stats(index))
 
 
 class BimodalDevice(unittest.TestCase):

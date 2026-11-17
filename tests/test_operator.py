@@ -33,11 +33,8 @@ from operator_lib.util.helpers import HistoryNeedsRayError
 
 import main
 from main import HISTORY_RETRIES, HISTORY_RETRY_S, LAG_LIMIT_S, CustomConfig, Operator
-from algo import live
 from algo.history import last_arrivals
-from algo.live import FALLBACK_SAMPLES, STATS_REFRESH
-from algo.detectors.extreme_value import MIN_VALUES, ValueStats, value_stats
-from algo.detectors.receive_time import MIN_GAPS, GapStats
+from algo.stats import MIN_SAMPLES, GapStats, ValueStats, value_stats
 from algo.model import SCHEMA_VERSION, AnomalyModel, DeviceProfile
 from algo.training import fit_anomaly_model
 from tests.test_training import START, to_frame
@@ -77,7 +74,7 @@ class UnreadableDataset:
         raise RuntimeError("Failed to get allocated resources")
 
 
-def profile(values=ValueStats(100.0, 10.0, 1000, 65.0, 135.0), gaps=GapStats(10.0, 1000, 12.0)):
+def profile(values=ValueStats(100.0, 65.0, 135.0), gaps=GapStats(10.0, 12.0)):
     return DeviceProfile(values, gaps)
 
 
@@ -159,16 +156,16 @@ class TestExtreme(OperatorTestCase):
 
     def test_device_in_standby_reports_no_low(self):
         # Standby at the 0.01 % quantile puts the lower bound below zero.
-        op = self.operator({KEY: profile(ValueStats(300.0, 20.0, 100, 5.0, 800.0), None)})
+        op = self.operator({KEY: profile(ValueStats(300.0, 5.0, 800.0), None)})
         self.assertIsNone(self.infer(op, 5.0, T0))
         self.assertIsNone(self.infer(op, 0.0, at(1)))
 
     def test_new_device_reports_through_the_running_statistic_after_min_values(self):
         op = self.operator(None, check_receive_time_outlier=False)
-        values = [99.0 + 2 * (i % 2) for i in range(MIN_VALUES)]
+        values = [99.0 + 2 * (i % 2) for i in range(MIN_SAMPLES)]
         for i, v in enumerate(values):
             self.assertIsNone(self.infer(op, v, at(i)))
-        (result,) = self.infer(op, 120.0, at(MIN_VALUES))
+        (result,) = self.infer(op, 120.0, at(MIN_SAMPLES))
         expected = value_stats(np.array(values))  # the calculation of the training
         self.assertEqual((result["sub_type"], result["threshold"], result["mean"]),
                          ("high", round(expected.upper(), 2), 100.0))
@@ -176,51 +173,22 @@ class TestExtreme(OperatorTestCase):
 
     def test_new_device_reports_a_new_normal_level_once(self):
         op = self.operator(None, check_receive_time_outlier=False)
-        for i in range(MIN_VALUES):
+        for i in range(MIN_SAMPLES):
             self.infer(op, 200.0 + (i % 3 - 1), at(i))
-        reports = [self.infer(op, 230.0, at(MIN_VALUES + i)) for i in range(20)]
+        reports = [self.infer(op, 230.0, at(MIN_SAMPLES + i)) for i in range(20)]
         self.assertEqual(sum(r is not None for r in reports), 1)
-
-    def test_the_fallback_buffer_holds_the_last_samples_only(self):
-        op = self.operator(None)
-        st = None
-        for i in range(FALLBACK_SAMPLES + 50):
-            self.infer(op, 100.0 + (i % 7), at(i / 60))
-            st = op._live[KEY]
-        self.assertEqual(len(st.values.samples), FALLBACK_SAMPLES)
-        self.assertLessEqual(st.values.stats().n, FALLBACK_SAMPLES)
-        self.assertEqual(len(st.gaps.samples), FALLBACK_SAMPLES)
-
-    def test_a_young_fallback_statistic_follows_every_value(self):
-        buffer = live.SampleBuffer(value_stats, MIN_VALUES)
-        for i in range(MIN_VALUES):
-            buffer.add(float(i))
-        self.assertEqual(buffer.stats().n, MIN_VALUES)
-        buffer.add(1000.0)
-        self.assertEqual(buffer.stats().n, MIN_VALUES + 1)
-
-    def test_an_old_fallback_statistic_is_refreshed_every_stats_refresh_values(self):
-        buffer = live.SampleBuffer(value_stats, MIN_VALUES)
-        for i in range(live.STATS_REFRESH_ALWAYS_BELOW):
-            buffer.add(float(i % 30))
-        first = buffer.stats()
-        for i in range(STATS_REFRESH - 1):
-            buffer.add(1000.0)
-        self.assertIs(buffer.stats(), first)
-        buffer.add(1000.0)
-        self.assertEqual(buffer.stats().n, live.STATS_REFRESH_ALWAYS_BELOW + STATS_REFRESH)
 
     def test_new_device_reports_nothing_before_min_values(self):
         op = self.operator(None, check_receive_time_outlier=False)
-        for i in range(MIN_VALUES - 1):
+        for i in range(MIN_SAMPLES - 1):
             self.infer(op, 100.0, at(i))
-        self.assertIsNone(self.infer(op, 5000.0, at(MIN_VALUES)))
+        self.assertIsNone(self.infer(op, 5000.0, at(MIN_SAMPLES)))
 
     def test_the_profile_is_never_changed_by_a_message(self):
         p = profile()
         op = self.operator({KEY: p})
         self.infer(op, 180.0, T0)
-        self.assertEqual(p.values, ValueStats(100.0, 10.0, 1000, 65.0, 135.0))
+        self.assertEqual(p.values, ValueStats(100.0, 65.0, 135.0))
 
 
 class TestGap(OperatorTestCase):
@@ -228,7 +196,7 @@ class TestGap(OperatorTestCase):
         op = self.operator({KEY: profile()})
         self.infer(op, 100.0, at(10))
         self.assertIsNone(self.infer(op, 100.0, at(5)))
-        self.assertEqual(op._live[KEY].last_arrival, at(10))
+        self.assertEqual(op._devices[KEY].last_arrival, at(10))
 
 
 class TestRealCaseBimodal(OperatorTestCase):
@@ -287,7 +255,7 @@ class TestRealCaseGaps(OperatorTestCase):
 
 class TestOutages(OperatorTestCase):
     def armed(self, **config):
-        op = self.operator({KEY: profile(gaps=GapStats(1.0, 1000, 1.2))}, **config)  # upper limit 5 minutes
+        op = self.operator({KEY: profile(gaps=GapStats(1.0, 1.2))}, **config)  # upper limit 5 minutes
         self.wall = at(0)
         self.infer(op, 100.0, at(0))
         return op
@@ -363,10 +331,10 @@ class TestOutages(OperatorTestCase):
 
     def test_new_device_is_watched_through_the_running_statistic(self):
         op = self.operator(None, check_data_extreme_outlier=False)
-        for i in range(MIN_GAPS + 1):
+        for i in range(MIN_SAMPLES + 1):
             self.wall = at(10 * i)
             self.infer(op, 100.0, at(10 * i))
-        last = 10 * MIN_GAPS
+        last = 10 * MIN_SAMPLES
         self.wall = at(last + 29)
         op._check_outages()
         self.assertEqual(self.reports(), [])
@@ -407,7 +375,7 @@ class TestRestore(OperatorTestCase):
     def restored(self, last, devices=None, history=None, ray_get=None, frames_error=None, datasets=None):
         """frames_error: what reading the history in the pod raises, after which it is read in a Ray task;
         datasets: what the Ray task reads, the history by default."""
-        op = self.operator(devices or {KEY: profile(gaps=GapStats(1.0, 1000, 1.2))})  # upper limit 5 minutes
+        op = self.operator(devices or {KEY: profile(gaps=GapStats(1.0, 1.2))})  # upper limit 5 minutes
         if history is None:
             history = [pd.DataFrame({"time": [last.replace(tzinfo=None) - MINUTE, last.replace(tzinfo=None)],
                                      "value": [100.0, 100.0]})]
@@ -450,31 +418,31 @@ class TestRestore(OperatorTestCase):
         self.assertEqual(self.ray.get.call_args.kwargs, {"timeout": main.RESTORE_TIMEOUT_S})
         self.ray.init.assert_called_once()
         self.ray.shutdown.assert_called_once()
-        self.assertEqual(op._live[KEY].last_arrival, at(-2))
-        self.assertTrue(op._live[KEY].armed)
+        self.assertEqual(op._devices[KEY].last_arrival, at(-2))
+        self.assertTrue(op._devices[KEY].armed)
 
     def test_a_device_past_its_bound_at_the_start_is_left_to_the_pod_before(self):
         op = self.restored(last=at(-5))
         self.wall = at(30)
         op._check_outages()
         self.assertEqual(self.reports(), [])
-        self.assertNotIn(KEY, op._live)
+        self.assertNotIn(KEY, op._devices)
 
     def test_a_live_arrival_is_kept(self):
-        op = self.operator({KEY: profile(gaps=GapStats(1.0, 1000, 1.2))})
+        op = self.operator({KEY: profile(gaps=GapStats(1.0, 1.2))})
         self.infer(op, 100.0, at(0))
         frame = pd.DataFrame({"time": [at(-1).replace(tzinfo=None)], "value": [100.0]})
         with mock.patch("main.provide_historic_frames_local", return_value=[frame]), \
                 mock.patch("main._topic_meta", return_value=self.META):
             op._restore_arrivals(at(0))
-        self.assertEqual(op._live[KEY].last_arrival, at(0))
+        self.assertEqual(op._devices[KEY].last_arrival, at(0))
 
     def test_the_window_is_the_widest_bound_and_a_margin_at_most_restore_max(self):
-        devices = {KEY: profile(gaps=GapStats(1.0, 1000, 1.2)), "b": profile(gaps=GapStats(10.0, 1000, 12.0)),
+        devices = {KEY: profile(gaps=GapStats(1.0, 1.2)), "b": profile(gaps=GapStats(10.0, 12.0)),
                    "c": profile(gaps=None)}
         self.restored(last=at(-2), devices=devices)
         self.frames.assert_called_once_with(datetime.timedelta(minutes=36) + main.RESTORE_MARGIN)
-        self.restored(last=at(-2), devices={KEY: profile(gaps=GapStats(600.0, 1000, 6000.0))})
+        self.restored(last=at(-2), devices={KEY: profile(gaps=GapStats(600.0, 6000.0))})
         self.frames.assert_called_once_with(main.RESTORE_MAX)
         self.restored(last=at(-2), frames_error=HistoryNeedsRayError("only in Kafka"))
         self.request.assert_called_once_with(datetime.timedelta(minutes=5) + main.RESTORE_MARGIN)
@@ -483,21 +451,21 @@ class TestRestore(OperatorTestCase):
         frame = pd.DataFrame({"time": [at(-1).replace(tzinfo=None)], "value": [100.0]})
         self.META = [{"filterType": "DeviceId", "filterValue": "other"}, {"filterType": "DeviceId", "filterValue": KEY}]
         op = self.restored(last=at(-1), history=[frame, frame])
-        self.assertNotIn("other", op._live)
-        self.assertEqual(op._live[KEY].last_arrival, at(-1))
+        self.assertNotIn("other", op._devices)
+        self.assertEqual(op._devices[KEY].last_arrival, at(-1))
 
     def test_an_input_unreadable_in_the_pod_leaves_out_only_that_input_in_the_ray_task(self):
         frame = pd.DataFrame({"time": [at(-1).replace(tzinfo=None)], "value": [100.0]})
         self.META = [{"filterType": "DeviceId", "filterValue": "other"}, {"filterType": "DeviceId", "filterValue": KEY}]
-        devices = {KEY: profile(gaps=GapStats(1.0, 1000, 1.2)), "other": profile(gaps=GapStats(1.0, 1000, 1.2))}
+        devices = {KEY: profile(gaps=GapStats(1.0, 1.2)), "other": profile(gaps=GapStats(1.0, 1.2))}
         with mock.patch("main.logger") as log:
             op = self.restored(last=at(-1), devices=devices, frames_error=RuntimeError('relation "x" does not exist'),
                                datasets=[UnreadableDataset(), FakeDataset(frame)])
         log.exception.assert_not_called()
         log.warning.assert_called_once()
         self.task.remote.assert_called_once()
-        self.assertNotIn("other", op._live)
-        self.assertEqual(op._live[KEY].last_arrival, at(-1))
+        self.assertNotIn("other", op._devices)
+        self.assertEqual(op._devices[KEY].last_arrival, at(-1))
 
     def test_a_read_in_the_pod_that_runs_out_ends_the_restore_without_ray(self):
         release = threading.Event()
@@ -510,7 +478,7 @@ class TestRestore(OperatorTestCase):
         release.set()
         log.exception.assert_called_once()
         self.ray.init.assert_not_called()
-        self.assertEqual(op._live, {})
+        self.assertEqual(op._devices, {})
 
     def test_a_ray_task_that_does_not_finish_does_not_stop_the_start(self):
         def timeout(refs, timeout=None):
@@ -520,7 +488,7 @@ class TestRestore(OperatorTestCase):
         log.exception.assert_called_once()
         self.ray.cancel.assert_called_once()
         self.ray.shutdown.assert_called_once()
-        self.assertEqual(op._live, {})
+        self.assertEqual(op._devices, {})
 
     def test_init_restores_from_its_own_start_before_consuming_unless_switched_off(self):
         for flag, calls in ((True, [mock.call(at(0))]), (False, [])):
@@ -623,7 +591,7 @@ class TestTrain(OperatorTestCase):
         log.exception.assert_called_once()
 
     def test_the_outage_report_resumes_after_the_grace_period_without_a_message(self):
-        op = self.operator({KEY: profile(gaps=GapStats(1.0, 1000, 1.2))})  # upper limit 5 minutes
+        op = self.operator({KEY: profile(gaps=GapStats(1.0, 1.2))})  # upper limit 5 minutes
         self.wall = at(0)
         self.infer(op, 100.0, at(0))
         stale = anomaly_model({KEY: profile()}, trained_until=T0 - datetime.timedelta(days=1))

@@ -19,16 +19,18 @@ __all__ = ("fit_anomaly_model", "train_anomaly_model")
 import datetime
 import typing
 
+import numpy as np
 import pandas as pd
 import ray
 
-from .detectors import extreme_value, receive_time
 from .history import _read_history
 from .model import SCHEMA_VERSION, AnomalyModel, DeviceProfile
+from .stats import gap_stats, value_stats
 
 
 def _profile(series: pd.Series) -> DeviceProfile:
-    return DeviceProfile(extreme_value._value_stats(series.to_numpy(float)), receive_time._gap_stats(series.index))
+    gaps_min = np.diff(series.index.to_numpy()) / np.timedelta64(1, "m")
+    return DeviceProfile(value_stats(series.to_numpy(float)), gap_stats(gaps_min))
 
 
 def fit_anomaly_model(datasets, topic_meta, now: datetime.datetime) -> typing.Tuple[AnomalyModel, typing.List[str], bool]:

@@ -19,6 +19,7 @@ dotenv.load_dotenv()
 
 import concurrent.futures
 import datetime
+import json
 import math
 import threading
 import time
@@ -32,10 +33,9 @@ from operator_lib.util import MLOperator, Config, Inputs, Outputs, logger
 from operator_lib.util import clock
 from operator_lib.util.helpers import HistoryNeedsRayError, provide_historic_data, provide_historic_frames_local
 
-from algo import live
-from algo.detectors import extreme_value, receive_time, schema
 from algo.history import last_arrivals, read_last_arrivals
-from algo.model import SCHEMA_VERSION, AnomalyModel
+from algo.model import SCHEMA_VERSION, AnomalyModel, DeviceProfile
+from algo.stats import SampleBuffer, gap_stats, value_stats
 from algo.training import train_anomaly_model
 
 __all__ = ("Operator", "CustomConfig", "OperatorInputs", "OperatorOutputs")
@@ -138,15 +138,31 @@ def _berlin_date(t: datetime.datetime) -> datetime.date:
     return _aware(t).astimezone(BERLIN).date()
 
 
+def _minutes(delta: datetime.timedelta) -> float:
+    return delta.total_seconds() / 60
+
+
+class Device:
+    """What the operator keeps of one device; shared with the watchdog, so only touched under the operator's lock."""
+
+    def __init__(self):
+        # The last values and gaps, which judge a device without a profile.
+        self.values = SampleBuffer(value_stats)
+        self.gaps = SampleBuffer(gap_stats)
+        self.last_arrival: typing.Optional[datetime.datetime] = None  # message time of its newest message
+        self.armed = False  # whether its silence may be reported, once per outage
+        self.extreme_side: typing.Optional[str] = None  # "high" or "low" while its values are beyond a bound
+
+
 class Operator(MLOperator):
     configType = CustomConfig
     inputs = OperatorInputs
     outputs = OperatorOutputs
 
     def __init__(self):
-        # Guards the device state the watchdog thread shares with infer(), and the flags below.
+        # Guards the devices the watchdog thread shares with infer(), and the flags below.
         self._lock = threading.Lock()
-        self._live: typing.Dict[str, live.DeviceState] = {}
+        self._devices: typing.Dict[str, Device] = {}
         self._paused = False  # training or its aftermath: no missing-message reports
         self._pause_until: typing.Optional[float] = None  # monotonic end of the pause once the training is over
         self._catching_up = False  # the last message was old: a backlog, not an outage
@@ -263,9 +279,9 @@ class Operator(MLOperator):
             self._catching_up = lag >= LAG_LIMIT_S
             if self._paused and not self._catching_up:
                 self._paused = False
-            st = self._live.get(key)
-            if st is None:
-                st = self._live[key] = live.DeviceState()
+            device = self._devices.get(key)
+            if device is None:
+                device = self._devices[key] = Device()
 
         try:
             value = float(data["value"])
@@ -278,15 +294,41 @@ class Operator(MLOperator):
         anomaly_model = _unwrap(model)
         profile = anomaly_model.profile(key) if anomaly_model is not None else None
 
-        if self.config.check_receive_time_outlier:
-            # The watchdog shares the arrivals and gaps of the device.
-            with self._lock:
-                receive_time.arrive(st, ts)
-        if self.config.check_data_extreme_outlier:
-            result = extreme_value.check(profile, st, key, value)
-            if result is not None:
-                return [result]
+        with self._lock:
+            if self.config.check_receive_time_outlier:
+                self._arrive(device, profile, ts)
+            if self.config.check_data_extreme_outlier:
+                result = self._extreme(key, device, profile, value)
+                if result is not None:
+                    return [result]
         return []
+
+    @staticmethod
+    def _arrive(device: Device, profile: typing.Optional[DeviceProfile], at: datetime.datetime):
+        last = device.last_arrival
+        if last is not None and at <= last:
+            return  # out of order or a duplicate: neither a gap nor a newer message
+        if last is not None and (profile is None or profile.gaps is None):
+            device.gaps.add(_minutes(at - last))
+        device.last_arrival = at
+        device.armed = True
+
+    @staticmethod
+    def _extreme(key: str, device: Device, profile: typing.Optional[DeviceProfile], value: float):
+        if profile is not None and profile.values is not None:
+            stats = profile.values
+        else:
+            stats = device.values.stats()
+            device.values.add(value)
+        if stats is None:
+            return None
+        side = "high" if value > stats.upper() else "low" if value < stats.lower() else None
+        previous, device.extreme_side = device.extreme_side, side
+        if side is None or side == previous:
+            return None  # once per excursion: a device stuck beyond a bound would report every message
+        threshold = stats.upper() if side == "high" else stats.lower()
+        return {"type": "extreme_value", "sub_type": side, "value": value, "mean": round(stats.mean, 2),
+                "threshold": round(threshold, 2), "device_id": key}
 
     # missing messages
 
@@ -337,12 +379,12 @@ class Operator(MLOperator):
                     last = _aware(arrival.to_pydatetime())
                     if last + bounds[key] <= started:
                         continue
-                    st = self._live.get(key)
-                    if st is None:
-                        st = self._live[key] = live.DeviceState()
-                    if st.last_arrival is None:
-                        st.last_arrival = last
-                        st.armed = True
+                    device = self._devices.get(key)
+                    if device is None:
+                        device = self._devices[key] = Device()
+                    if device.last_arrival is None:
+                        device.last_arrival = last
+                        device.armed = True
                         restored += 1
             logger.info(f"restored the last arrival of {restored} devices")
         except Exception:
@@ -371,11 +413,17 @@ class Operator(MLOperator):
             if paused or self._catching_up:
                 return
             now = self._now()
-            for key, st in self._live.items():
+            for key, device in self._devices.items():
+                if not device.armed or device.last_arrival is None:
+                    continue
                 profile = anomaly_model.profile(key) if anomaly_model is not None else None
-                report = receive_time.outage(profile, st, key, now)
-                if report is not None:
-                    reports.append(report)
+                stats = profile.gaps if profile is not None and profile.gaps is not None else device.gaps.stats()
+                silent = _minutes(now - device.last_arrival)
+                if stats is not None and silent > stats.upper():
+                    device.armed = False  # armed again by its next message
+                    reports.append({"type": "time", "sub_type": "high", "value": round(silent, 2),
+                                    "mean": round(stats.mean_min, 2), "threshold": round(stats.upper(), 2),
+                                    "device_id": key})
         for report in reports:  # outside the lock: producing may block
             try:
                 self.produce(report)
@@ -388,7 +436,7 @@ class Operator(MLOperator):
         # Catches missing middle keys like ENERGY, but not a missing last key like power.
         if not self.config.check_data_schema:
             return
-        produce(schema.report(message, device_id))
+        produce({"type": "schema", "sub_type": "", "value": json.dumps(message), "device_id": device_id})
 
 
 if __name__ == "__main__":
