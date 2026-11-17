@@ -55,6 +55,9 @@ PAUSE_GRACE_S = 600
 RESTORE_MARGIN = datetime.timedelta(minutes=10)
 RESTORE_MAX = datetime.timedelta(days=2)
 RESTORE_TIMEOUT_S = 120
+# An excursion beyond a bound ends with the first value within the bounds this long or longer after the last value
+# beyond them, by message time: a value swinging around a bound is one excursion, not one per swing.
+EXCURSION_END = datetime.timedelta(hours=1)
 BERLIN = zoneinfo.ZoneInfo("Europe/Berlin")
 UTC = datetime.timezone.utc
 
@@ -152,7 +155,8 @@ class Device:
         self.last_arrival: typing.Optional[datetime.datetime] = None  # message time of its newest message
         self.seen: typing.Optional[datetime.datetime] = None  # when the operator last received a message of it
         self.armed = False  # whether its silence may be reported, once per outage
-        self.extreme_side: typing.Optional[str] = None  # "high" or "low" while its values are beyond a bound
+        self.extreme_side: typing.Optional[str] = None  # "high" or "low" while an excursion beyond a bound lasts
+        self.extreme_at: typing.Optional[datetime.datetime] = None  # message time of its last value beyond a bound
 
 
 class Operator(MLOperator):
@@ -324,7 +328,7 @@ class Operator(MLOperator):
             if self.config.check_receive_time_outlier:
                 self._arrive(device, profile, ts, self._now())
             if self.config.check_data_extreme_outlier:
-                result = self._extreme(key, device, profile, value)
+                result = self._extreme(key, device, profile, value, ts)
                 if result is not None:
                     return [result]
         return []
@@ -343,7 +347,8 @@ class Operator(MLOperator):
         device.armed = True
 
     @staticmethod
-    def _extreme(key: str, device: Device, profile: typing.Optional[DeviceProfile], value: float):
+    def _extreme(key: str, device: Device, profile: typing.Optional[DeviceProfile], value: float,
+                 at: datetime.datetime):
         if profile is not None and profile.values is not None:
             stats = profile.values
         else:
@@ -352,9 +357,14 @@ class Operator(MLOperator):
         if stats is None:
             return None
         side = "high" if value > stats.upper() else "low" if value < stats.lower() else None
-        previous, device.extreme_side = device.extreme_side, side
-        if side is None or side == previous:
+        if side is None:
+            if device.extreme_side is not None and at - device.extreme_at >= EXCURSION_END:
+                device.extreme_side = None
+            return None
+        if side == device.extreme_side:
+            device.extreme_at = max(device.extreme_at, at)
             return None  # once per excursion: a device stuck beyond a bound would report every message
+        device.extreme_side, device.extreme_at = side, at
         threshold = stats.upper() if side == "high" else stats.lower()
         return {"type": "extreme_value", "sub_type": side, "value": value, "mean": round(stats.mean, 2),
                 "threshold": round(threshold, 2), "device_id": key}

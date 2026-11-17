@@ -153,9 +153,27 @@ class TestExtreme(OperatorTestCase):
         op = self.operator({KEY: profile()}, check_receive_time_outlier=False)
         reports = [self.infer(op, 180.0, at(i)) for i in range(10)]
         self.assertEqual(sum(r is not None for r in reports), 1)
-        self.assertIsNone(self.infer(op, 100.0, at(10)))
-        self.assertIsNotNone(self.infer(op, 180.0, at(11)))
-        self.assertIsNotNone(self.infer(op, 20.0, at(12)))  # the other side is a new excursion
+        self.assertIsNone(self.infer(op, 100.0, at(70)))
+        self.assertIsNotNone(self.infer(op, 180.0, at(71)))
+        self.assertIsNotNone(self.infer(op, 20.0, at(72)))  # the other side is a new excursion
+
+    def test_a_value_swinging_around_a_bound_is_one_excursion(self):
+        op = self.operator({KEY: profile()}, check_receive_time_outlier=False)
+        reports = [self.infer(op, v, at(10 * i)) for i, v in enumerate([180.0, 160.0, 180.0, 160.0, 180.0])]
+        self.assertEqual(sum(r is not None for r in reports), 1)
+
+    def test_an_excursion_ends_with_a_value_within_the_bounds_an_hour_after_the_last_beyond(self):
+        op = self.operator({KEY: profile()}, check_receive_time_outlier=False)
+        self.infer(op, 180.0, at(0))
+        self.infer(op, 100.0, at(59))
+        self.assertIsNone(self.infer(op, 180.0, at(60)))  # still the first excursion
+        self.infer(op, 100.0, at(120))
+        self.assertIsNotNone(self.infer(op, 180.0, at(121)))
+
+    def test_a_device_beyond_a_bound_before_and_after_a_silence_is_not_reported_again(self):
+        op = self.operator({KEY: profile()}, check_receive_time_outlier=False)
+        self.assertIsNotNone(self.infer(op, 180.0, at(0)))
+        self.assertIsNone(self.infer(op, 180.0, at(180)))
 
     def test_flag_off_gives_nothing(self):
         op = self.operator({KEY: profile()}, check_data_extreme_outlier=False)
