@@ -2,6 +2,8 @@
 
 Reports three kinds of anomaly in a numeric series per device: a value outside the usual range of the device, a device that stops sending, and a message the input mapping cannot read.
 
+The check of extreme values suits momentary readings such as power, temperature or flow. The reading of a meter only grows, and the daily training moves its bounds along: a meter is reported when it is reset or jumps far ahead, but not for a high consumption. The check of missing messages suits both. To watch the consumption of a meter, give the operator the difference between consecutive readings.
+
 ## Input and output
 
 - Input `value`: a number. Input `original_input_ids` identifies the device when the input comes from another operator; otherwise the device is the message's own device. The time of a value is the time of its message.
@@ -20,7 +22,7 @@ Reports three kinds of anomaly in a numeric series per device: a value outside t
 
 | Check | Config | Rule |
 | --- | --- | --- |
-| Extreme value | `check_data_extreme_outlier` | Beyond the 0.01 % and 99.99 % quantiles of the device's values, widened by 20 % of their distance on both sides and at least by 5 % of the larger quantile. For a quantity that never was negative, such as power, the lower bound is 0, so only a negative value is low. Reported once per excursion beyond a bound. Quantiles, because mean ± 5 standard deviations lies inside the upper mode of a device with two modes, such as standby and a heating element. |
+| Extreme value | `check_data_extreme_outlier` | Beyond the 0.01 % and 99.99 % quantiles of the device's values, widened by 20 % of their distance on both sides and at least by 5 % of the larger quantile. For a quantity that never was negative, such as power, the lower bound stops at 0: a device whose values reach 0 is low only for a negative value, a device with a base load also when it drops below that load by more than the widening. Reported once per excursion beyond a bound. Quantiles, because mean ± 5 standard deviations lies inside the upper mode of a device with two modes, such as standby and a heating element. |
 | Missing messages | `check_receive_time_outlier` | No message for longer than 3 times the 99.9 % quantile of the device's gaps, at least 5 minutes. A watchdog checks every 5 seconds and reports once per outage; the next message watches the device again. The silence counts from the last message the operator received of the device, so working off a backlog is no outage, and a late message of one device hides no other. |
 | Malformed message | `check_data_schema` | A message the input mapping cannot read; reported once per device until it sends a readable message. |
 
