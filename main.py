@@ -167,6 +167,8 @@ class Operator(MLOperator):
         # Guards the devices the watchdog thread shares with infer(), and the flags below.
         self._lock = threading.Lock()
         self._devices: typing.Dict[str, Device] = {}
+        # The devices whose malformed message was reported and which sent no readable one since.
+        self._malformed: typing.Set[str] = set()
         self._paused = False  # training or its aftermath: no missing-message reports
         self._pause_until: typing.Optional[float] = None  # monotonic end of the pause once the training is over
         self._retry_at: typing.Optional[float] = None  # monotonic time of the next training after an unreadable history
@@ -303,6 +305,7 @@ class Operator(MLOperator):
         key = str(device_id or data.get("original_input_ids") or "")
         lag = (self._now() - ts).total_seconds()
         with self._lock:
+            self._malformed.discard(str(device_id or ""))
             if self._paused and lag < LAG_LIMIT_S:
                 self._paused = False
             device = self._devices.get(key)
@@ -467,6 +470,11 @@ class Operator(MLOperator):
         # Catches missing middle keys like ENERGY, but not a missing last key like power.
         if not self.config.check_data_schema:
             return
+        with self._lock:
+            # Once until the device sends a readable message: a misconfigured device sends nothing else.
+            if str(device_id or "") in self._malformed:
+                return
+            self._malformed.add(str(device_id or ""))
         produce({"type": "schema", "sub_type": "", "value": json.dumps(message), "device_id": device_id})
 
 

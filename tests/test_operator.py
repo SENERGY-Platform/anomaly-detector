@@ -538,6 +538,20 @@ class TestSchema(OperatorTestCase):
         op.handle_result_error(ValueError("x"), {"a": 1}, produce, "d1")
         produce.assert_not_called()
 
+    def test_a_device_is_reported_once_until_it_sends_a_readable_message(self):
+        op, reported = self.operator({KEY: profile()}), []
+        for _ in range(3):
+            op.handle_result_error(ValueError("x"), {"a": 1}, reported.append, KEY)
+        self.infer(op, 100.0, at(0))
+        op.handle_result_error(ValueError("x"), {"a": 1}, reported.append, KEY)
+        self.assertEqual([r["device_id"] for r in reported], [KEY, KEY])
+
+    def test_each_device_is_reported_on_its_own(self):
+        op, reported = self.operator(None), []
+        for device in ("d1", "d2", "d1"):
+            op.handle_result_error(ValueError("x"), {"a": 1}, reported.append, device)
+        self.assertEqual([r["device_id"] for r in reported], ["d1", "d2"])
+
 
 class TestConfig(unittest.TestCase):
     NAMES = ("check_data_extreme_outlier", "check_data_schema", "check_receive_time_outlier")
