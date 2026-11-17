@@ -3,12 +3,13 @@ name: 'PROD build'
 # main builds :vX.Y.Z; a release/vN branch keeps an older major alive and builds only
 # its :vN.x.y. :prod stays on the last build before the rewrite, which pipelines started
 # from it keep running; retag.yml moves it. The git tag is pushed after the image, so a
-# failed build never consumes a version.
+# failed build never consumes a version. A pull request is only tested.
 on:
   push:
     branches:
       - main
       - 'release/v*'
+  pull_request:
   workflow_dispatch:
 
 permissions:
