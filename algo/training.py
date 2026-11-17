@@ -14,7 +14,7 @@
    limitations under the License.
 """
 
-__all__ = ("fit_anomaly_model", "train_anomaly_model")
+__all__ = ("fit_anomaly_model", "train_anomaly_model", "profile_table")
 
 import datetime
 import typing
@@ -53,4 +53,21 @@ def fit_anomaly_model(datasets, topic_meta, now: datetime.datetime) -> typing.Tu
     return AnomalyModel(SCHEMA_VERSION, now, devices), notes, history_failed
 
 
+
 train_anomaly_model = ray.remote(fit_anomaly_model)
+
+
+def profile_table(model: AnomalyModel) -> pd.DataFrame:
+    """The bounds of every device, one row each, as the training logs them to MLflow."""
+    rows = []
+    for key, p in sorted(model.devices.items()):
+        rows.append({
+            "device_id": key,
+            "value_mean": p.values.mean if p.values else None,
+            "value_lower": p.values.lower() if p.values else None,
+            "value_upper": p.values.upper() if p.values else None,
+            "gap_mean_min": p.gaps.mean_min if p.gaps else None,
+            "gap_upper_min": p.gaps.upper() if p.gaps else None,
+        })
+    return pd.DataFrame(rows, columns=["device_id", "value_mean", "value_lower", "value_upper", "gap_mean_min",
+                                       "gap_upper_min"])

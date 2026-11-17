@@ -553,14 +553,55 @@ def history_frame(minutes=300, seed=0):
 class TestTrain(OperatorTestCase):
     META = [{"filterType": "DeviceId", "filterValue": "d1"}]
 
-    def run_train(self, op, model=None, history=None, remote=None, ray_get=None, history_error=None, logger=None):
+    def run_train(self, op, model=None, history=None, remote=None, ray_get=None, history_error=None, logger=None,
+                  frames=None, frames_error=HistoryNeedsRayError("only in Kafka")):
+        """frames: the history read in the pod; without it, reading in the pod raises frames_error and the history
+        (datasets) is read in a Ray task."""
         remote = remote or (lambda *a: fit_anomaly_model(*a))
         request = (mock.patch("main.provide_historic_data", side_effect=history_error) if history_error
                    else mock.patch("main.provide_historic_data", return_value=history))
-        with request, mock.patch("main._topic_meta", return_value=self.META), \
+        in_pod = (mock.patch("main.provide_historic_frames_local", return_value=frames) if frames is not None
+                  else mock.patch("main.provide_historic_frames_local", side_effect=frames_error))
+        with request, in_pod, mock.patch("main._topic_meta", return_value=self.META), \
                 mock.patch("main.train_anomaly_model", mock.Mock(remote=remote)), \
                 mock.patch("main.ray.get", side_effect=ray_get or (lambda r: r)):
             return op.train(model, logger)
+
+    def test_the_history_is_read_and_learned_in_the_pod_without_ray(self):
+        op = self.operator(None)
+        remote = mock.Mock()
+        model = self.run_train(op, frames=[history_frame()], remote=remote)
+        self.assertEqual(list(model.devices), ["d1"])
+        self.assertIsNotNone(model.profile("d1").values)
+        remote.assert_not_called()
+
+    def test_an_input_only_kafka_has_is_learned_in_a_ray_task(self):
+        op = self.operator(None)
+        remote = mock.Mock(side_effect=lambda *a: fit_anomaly_model(*a))
+        model = self.run_train(op, history=[FakeDataset(history_frame())], remote=remote,
+                               frames_error=HistoryNeedsRayError("only in Kafka"))
+        self.assertEqual(list(model.devices), ["d1"])
+        remote.assert_called_once()
+
+    def test_a_read_in_the_pod_that_runs_out_is_tried_again_later_without_ray(self):
+        op = self.operator(None)
+        remote = mock.Mock()
+        with mock.patch.object(main, "HISTORY_TIMEOUT_S", 0.05), mock.patch("main.logger"):
+            model = self.run_train(op, remote=remote, frames_error=lambda *a: time.sleep(1))
+        self.assertIsNone(model)
+        self.assertEqual(op._history_retries, 1)
+        remote.assert_not_called()
+
+    def test_the_bounds_of_every_device_are_logged_as_a_table(self):
+        op = self.operator(None)
+        logger = mock.Mock()
+        self.run_train(op, frames=[history_frame()], logger=logger)
+        table, artifact = logger.log_table.call_args.args
+        self.assertEqual(artifact, "profiles.json")
+        self.assertEqual(list(table["device_id"]), ["d1"])
+        self.assertLess(table["value_lower"][0], 100)
+        self.assertGreater(table["value_upper"][0], 100)
+        self.assertEqual(table["gap_upper_min"][0], 5)
 
     def test_good_history_gives_a_model_and_the_task_gets_the_meta(self):
         op = self.operator(None)

@@ -31,16 +31,18 @@ import ray
 from operator_lib import util
 from operator_lib.util import MLOperator, Config, Inputs, Outputs, logger
 from operator_lib.util import clock
-from operator_lib.util.helpers import HistoryNeedsRayError, provide_historic_data, provide_historic_frames_local
+from operator_lib.util.helpers import provide_historic_data, provide_historic_frames_local
 
 from algo.history import last_arrivals, read_last_arrivals
 from algo.model import SCHEMA_VERSION, AnomalyModel, DeviceProfile
 from algo.stats import SampleBuffer, gap_stats, value_stats
-from algo.training import train_anomaly_model
+from algo.training import fit_anomaly_model, profile_table, train_anomaly_model
 
 __all__ = ("Operator", "CustomConfig", "OperatorInputs", "OperatorOutputs")
 
 HISTORY_DAYS = 50
+# The training reads the history in the pod at most this long; consuming waits meanwhile.
+HISTORY_TIMEOUT_S = 300
 # A requested history that cannot be read, as when the Ray cluster has no CPU free, is tried again this
 # often, this far apart, before the day counts as trained on what could be read.
 HISTORY_RETRY_S = 600
@@ -119,13 +121,13 @@ def _topic_meta() -> typing.List[dict]:
     return [{"filterType": t.filterType, "filterValue": t.filterValue} for t in topics]
 
 
-def _frames_in_pod(duration: datetime.timedelta):
-    """The history of the inputs as pandas frames, read in the pod, at most RESTORE_TIMEOUT_S long: the library
-    sets no timeout on the database connection, and init() holds back consuming meanwhile. A read that runs out
-    goes on in its thread, and its result is dropped."""
-    pool = concurrent.futures.ThreadPoolExecutor(max_workers=1, thread_name_prefix="restore")
+def _frames_in_pod(duration: datetime.timedelta, timeout_s: float):
+    """The history of the inputs as pandas frames, read in the pod, at most timeout_s long: the library sets no
+    timeout on the database connection, and consuming waits meanwhile. A read that runs out goes on in its thread,
+    and its result is dropped."""
+    pool = concurrent.futures.ThreadPoolExecutor(max_workers=1, thread_name_prefix="history")
     try:
-        return pool.submit(provide_historic_frames_local, duration).result(timeout=RESTORE_TIMEOUT_S)
+        return pool.submit(provide_historic_frames_local, duration).result(timeout=timeout_s)
     finally:
         pool.shutdown(wait=False)
 
@@ -202,25 +204,8 @@ class Operator(MLOperator):
                 self._pause_until = time.monotonic() + PAUSE_GRACE_S
 
     def _train(self, model, train_logger):
-        datasets = None
-        topic_meta: typing.List[dict] = []
-        try:
-            topic_meta = _topic_meta()
-            datasets = provide_historic_data(datetime.timedelta(days=HISTORY_DAYS))
-        except Exception as ex:
-            logger.warning(f"history not available: {type(ex).__name__}: {ex}")
         now = clock.now()
-        trained = None
-        unreadable = datasets is None
-        if datasets is not None:
-            try:
-                trained, notes, history_failed = ray.get(train_anomaly_model.remote(datasets, topic_meta, now))
-                for note in notes:
-                    logger.info(note)
-                unreadable = history_failed
-            except Exception:
-                logger.exception("training task failed")
-                unreadable = True
+        trained, unreadable = self._fit(now)
 
         with self._lock:
             if unreadable and self._history_retries < HISTORY_RETRIES:
@@ -243,10 +228,51 @@ class Operator(MLOperator):
         if train_logger is not None:
             try:
                 train_logger.log_metrics({"devices_trained": len(trained.devices)})
+                train_logger.log_table(profile_table(trained), "profiles.json")
             except Exception:
                 # A metrics store that is down must not keep the trained model from the operator.
                 logger.exception("could not log the training metrics")
         return trained
+
+    def _fit(self, now: datetime.datetime) -> typing.Tuple[typing.Optional[AnomalyModel], bool]:
+        """
+        The model from the history and whether a requested history could not be read. Read and computed in the
+        pod: the statistics take milliseconds per device. In a Ray task only for an input whose history only Kafka
+        has, or after a read in the pod failed for another reason than its time limit.
+        """
+        duration = datetime.timedelta(days=HISTORY_DAYS)
+        try:
+            topic_meta = _topic_meta()
+        except Exception as ex:
+            logger.warning(f"history not available: {type(ex).__name__}: {ex}")
+            return None, True
+        try:
+            frames = _frames_in_pod(duration, HISTORY_TIMEOUT_S)
+        except concurrent.futures.TimeoutError:
+            logger.warning(f"history not read in the pod within {HISTORY_TIMEOUT_S} s")
+            return None, True
+        except Exception as ex:
+            # An input only Kafka has (HistoryNeedsRayError), or one input that cannot be read, which fails the
+            # whole read here; the Ray task reads the others and leaves only that one out.
+            logger.info(f"history not read in the pod ({type(ex).__name__}: {ex}), reading it in a Ray task")
+            return self._fit_in_ray(duration, topic_meta, now)
+        trained, notes, failed = fit_anomaly_model(frames, topic_meta, now)
+        for note in notes:
+            logger.info(note)
+        return trained, failed
+
+    @staticmethod
+    def _fit_in_ray(duration, topic_meta, now) -> typing.Tuple[typing.Optional[AnomalyModel], bool]:
+        # MLOperator has connected Ray for train() already.
+        try:
+            trained, notes, failed = ray.get(train_anomaly_model.remote(provide_historic_data(duration), topic_meta,
+                                                                        now))
+        except Exception:
+            logger.exception("training task failed")
+            return None, True
+        for note in notes:
+            logger.info(note)
+        return trained, failed
 
     def need_retraining(self, model) -> bool:
         with self._lock:
@@ -357,7 +383,7 @@ class Operator(MLOperator):
             try:
                 # Over the database connection, in the pod: a Ray task waits for a free worker of the cluster,
                 # minutes on a busy one, while the consumer has not started yet.
-                frames = _frames_in_pod(duration)
+                frames = _frames_in_pod(duration, RESTORE_TIMEOUT_S)
             except concurrent.futures.TimeoutError:
                 raise
             except Exception as ex:
