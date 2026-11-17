@@ -1,6 +1,6 @@
 # Anomaly Detector
 
-Detects anomalies in a numeric series per device: extreme values, unusual gaps between messages and malformed messages.
+Reports three kinds of anomaly in a numeric series per device: a value outside the usual range of the device, a device that stops sending, and a message the input mapping cannot read.
 
 ## Input and output
 
@@ -10,42 +10,55 @@ Detects anomalies in a numeric series per device: extreme values, unusual gaps b
 | Name | Meaning |
 | --- | --- |
 | `type` | `extreme_value`, `time` or `schema` |
-| `sub_type` | `high`/`low` for `extreme_value`, `high` for `time` |
-| `value` | the value, the gap in minutes or the message (`schema`) |
-| `mean` | mean of the statistic the value was compared with |
+| `sub_type` | `high` or `low` for `extreme_value`, `high` for `time`, empty for `schema` |
+| `value` | the value, the minutes without a message, or the message as JSON (`schema`) |
+| `mean` | mean of the values, or of the gaps in minutes |
 | `threshold` | the bound that was crossed |
 | `device_id` | the device |
 
 ## Detection
 
-| Check | Config | How | Code |
-| --- | --- | --- | --- |
-| Extreme value | `check_data_extreme_outlier` | the 0.01 % and 99.99 % quantiles of all values in the history, widened by 20 % of their distance on both sides, at least by 5 % of the larger quantile; for a quantity that never was negative, such as power, the lower bound is 0, so only a negative value counts; reported once per excursion beyond a bound; quantiles because mean ± 5 standard deviations sits inside the upper mode of a two-mode device | [extreme_value.py](algo/detectors/extreme_value.py) |
-| Gap between messages | `check_receive_time_outlier` | too long: 3 times the 99.9 % quantile of the gaps in the history, at least 5 minutes, reported by a watchdog while no message comes, once per outage, also across a restart: at start the operator reads the last message of each device back from the history and watches it when its bound had not passed yet; a short gap is not reported | [receive_time.py](algo/detectors/receive_time.py) |
-| Message schema | `check_data_schema` | a message the input mapping cannot read | [schema.py](algo/detectors/schema.py) |
+| Check | Config | Rule |
+| --- | --- | --- |
+| Extreme value | `check_data_extreme_outlier` | Beyond the 0.01 % and 99.99 % quantiles of the device's values, widened by 20 % of their distance on both sides and at least by 5 % of the larger quantile. For a quantity that never was negative, such as power, the lower bound is 0, so only a negative value is low. Reported once per excursion beyond a bound. Quantiles, because mean ± 5 standard deviations lies inside the upper mode of a device with two modes, such as standby and a heating element. |
+| Missing messages | `check_receive_time_outlier` | No message for longer than 3 times the 99.9 % quantile of the device's gaps, at least 5 minutes. A watchdog checks every 5 seconds and reports once per outage; the next message watches the device again. The silence counts from the last message the operator received of the device, so working off a backlog is no outage, and a late message of one device hides no other. |
+| Malformed message | `check_data_schema` | A message the input mapping cannot read; reported once per device until it sends a readable message. |
 
-A device without enough history (30 values or gaps) uses the same statistics over its last 10,000 live values and gaps until the next training, recomputed with every value while it has fewer than 1,000.
+The statistics are in [`algo/stats.py`](algo/stats.py), the checks in [`main.py`](main.py). A device without a profile, or with fewer than 30 values in its history, is judged by its last 10,000 live values and gaps; they are recomputed every 100 values, and with every value while there are fewer than 1,000.
 
 ## Training
 
-The operator is an `MLOperator` of analytics-operator-lib-python. At start, when no model is registered in MLflow, and once a day (Berlin date) it trains on 50 days of the history of its inputs. The model holds one profile per device and is stored in MLflow. The training runs as a Ray task on the cluster (`algo/training.py`); the image starts the operator with `uv run`, so Ray builds the environment of `uv.lock` on the workers. There is no learning phase. The last arrivals read back at start are read in the pod over the database connection, not in a Ray task, so a busy cluster does not delay the start of consuming; the history is read in a Ray task only for an input whose history is in Kafka alone, or after a read in the pod failed for another reason than its time limit.
+The operator is an `MLOperator` of analytics-operator-lib-python. At start, when no model is registered in MLflow, and once a day (Berlin date) it learns from 50 days of the history of its inputs. The model holds the statistics of every device and is stored in MLflow; the training also logs the bounds of every device as the table `profiles.json` and their number as the metric `devices_trained`.
 
-A history that cannot be read is tried again every 10 minutes, six times; after that the day counts as trained and the previous profiles stay. An input from another operator has only the retention of its Kafka topic as history.
+The history is read over the database connection in the pod, at most 5 minutes, and the statistics are computed there: they take milliseconds per device. A Ray task reads and computes it only for an input whose history is in Kafka alone, or after a read in the pod failed for another reason than its time limit; the image starts the operator with `uv run`, so Ray builds the environment of `uv.lock` on the workers. A history that cannot be read is tried again every 10 minutes, six times; after that the day counts as trained and the previous profiles stay.
+
+Consuming waits while the operator trains. The watchdog pauses from the start of a training until the first message afterwards that is less than 2 minutes old, at most 10 minutes after the training. At start, the last message of every device is read back from up to 2 days of history, in the pod within 2 minutes and with the same Ray task as fallback, so an outage that began before a restart is still reported; a device whose bound had passed by the start is left to the operator before.
 
 ## Code
 
-[`model.py`](algo/model.py) holds the shared types of a model and the profile of a device, [`history.py`](algo/history.py) reads and groups the history, [`training.py`](algo/training.py) builds the profiles from it, [`live.py`](algo/live.py) keeps the runtime state of a device, and [`main.py`](main.py) routes each message to the detectors and runs the watchdog.
+[`main.py`](main.py) handles the messages, runs the watchdog and the training; [`algo/stats.py`](algo/stats.py) holds the statistics and their bounds; [`algo/history.py`](algo/history.py) reads and groups the history; [`algo/training.py`](algo/training.py) derives the statistics of each device from it; [`algo/model.py`](algo/model.py) is the model stored in MLflow.
+
+[`scripts/replay_history.py`](scripts/replay_history.py) replays the history of real devices through the operator and counts its reports, also with injected anomalies. It measures; it is not a test.
+
+[`docs/known-limitations-and-open-decisions.md`](docs/known-limitations-and-open-decisions.md) lists what is not verified yet and what is still to be decided.
 
 ## Configuration
 
 | Name | Default | Meaning |
 | --- | --- | --- |
 | `check_data_extreme_outlier` | true | report extreme values |
-| `check_receive_time_outlier` | true | report unusual gaps between messages |
+| `check_receive_time_outlier` | true | report devices that stop sending |
 | `check_data_schema` | true | report malformed messages |
 | `logger_level` | warning | `debug`, `info`, `warning`, `error`, `critical` |
 
 An empty value means the default. The configuration values of version 1 (`init_phase_*`, `train_*`, `retrain`, `curve_detector_training_mode`) and `check_data_anomalies` of version 2 are ignored.
+
+## Development
+
+```sh
+uv sync
+uv run python -m unittest discover -s tests -t .
+```
 
 ## Versions
 
