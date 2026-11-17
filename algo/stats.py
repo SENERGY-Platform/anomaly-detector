@@ -30,12 +30,18 @@ import numpy as np
 # A statistic needs at least this many values or gaps.
 MIN_SAMPLES = 30
 
-# The bounds of the values are these quantiles of all values, widened by VALUE_MARGIN of their distance on both
-# sides and at least by VALUE_MIN_MARGIN of the larger one, since a constant device has no distance at all.
-# Quantiles rather than mean and standard deviation: a device with two modes, such as standby and a heating element,
+# The bounds of the values are their range without the VALUE_IGNORED most extreme values on each side, but at most
+# one in VALUE_IGNORED_PER values, widened by VALUE_MARGIN of that range on both sides and at least by
+# VALUE_MIN_MARGIN of its larger end, since a constant device has no range at all.
+# A number of values rather than a quantile: 50 days hold about 1,200 values of a device that sends every hour and
+# 72,000 of one that sends every minute, and a quantile such as 99.99 % is the maximum of the one, so that a single
+# outlier hides itself for 50 days, and the 7th largest value of the other, too close for a margin of 50 %.
+# Measured on public data in docs/extreme-value-bounds-and-hysteresis.md.
+# The range rather than mean and standard deviation: a device with two modes, such as standby and a heating element,
 # has its mean + 5 sigma inside the upper mode.
-VALUE_QUANTILES = (0.0001, 0.9999)
-VALUE_MARGIN = 0.2
+VALUE_IGNORED = 5
+VALUE_IGNORED_PER = 200
+VALUE_MARGIN = 0.5
 VALUE_MIN_MARGIN = 0.05
 
 # A device is silent after GAP_FACTOR times the 99.9 % quantile of its gaps, and never before GAP_MIN_MINUTES: a
@@ -83,10 +89,12 @@ class GapStats:
 
 def value_stats(values) -> typing.Optional[ValueStats]:
     values = np.asarray(values, dtype=float)
-    if len(values) < MIN_SAMPLES:
+    n = len(values)
+    if n < MIN_SAMPLES:
         return None
-    q_low, q_high = np.quantile(values, VALUE_QUANTILES)
-    return ValueStats(float(np.mean(values)), float(q_low), float(q_high))
+    ignored = min(VALUE_IGNORED, n // VALUE_IGNORED_PER)
+    ends = np.partition(values, (ignored, n - 1 - ignored))
+    return ValueStats(float(np.mean(values)), float(ends[ignored]), float(ends[n - 1 - ignored]))
 
 
 def gap_stats(gaps_min) -> typing.Optional[GapStats]:

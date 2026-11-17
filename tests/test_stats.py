@@ -23,21 +23,41 @@ from algo.stats import (FALLBACK_SAMPLES, MIN_SAMPLES, STATS_REFRESH, STATS_REFR
 
 
 class TestValueStats(unittest.TestCase):
-    def test_the_bounds_are_the_quantiles_widened_by_a_fifth_of_their_distance(self):
+    def test_the_bounds_are_widened_by_half_their_distance(self):
         self.assertEqual((ValueStats(10.0, -10.0, 90.0).lower(), ValueStats(10.0, -10.0, 90.0).upper()),
-                         (-30.0, 110.0))
+                         (-60.0, 140.0))
 
-    def test_the_lower_bound_of_a_never_negative_quantity_is_zero(self):
+    def test_the_lower_bound_of_a_never_negative_quantity_stops_at_zero(self):
         stats = ValueStats(10.0, 0.0, 100.0)
-        self.assertEqual((stats.lower(), stats.upper()), (0.0, 120.0))
+        self.assertEqual((stats.lower(), stats.upper()), (0.0, 150.0))
+
+    def test_a_device_with_a_base_load_has_a_lower_bound_above_zero(self):
+        self.assertEqual(ValueStats(60.0, 40.0, 80.0).lower(), 20.0)
 
     def test_a_constant_device_keeps_a_margin_of_five_percent(self):
         stats = ValueStats(100.0, 100.0, 100.0)
         self.assertEqual((stats.lower(), stats.upper()), (95.0, 105.0))
 
-    def test_the_bounds_come_from_the_extreme_quantiles(self):
+    def test_the_bounds_come_from_the_ends_of_the_values(self):
         stats = value_stats(np.tile([65.0, 135.0], 500))
         self.assertEqual(stats, ValueStats(100.0, 65.0, 135.0))
+
+    def test_the_five_most_extreme_values_on_each_side_are_ignored(self):
+        stats = value_stats(np.r_[np.full(5, -1e4), np.linspace(0.0, 100.0, 990), np.full(5, 1e4)])
+        self.assertEqual((stats.q_low, stats.q_high), (0.0, 100.0))
+
+    def test_a_short_history_ignores_at_most_one_value_in_two_hundred(self):
+        stats = value_stats(np.r_[np.full(2, -1e4), np.linspace(0.0, 100.0, 396), np.full(2, 1e4)])
+        self.assertEqual((stats.q_low, stats.q_high), (0.0, 100.0))
+
+    def test_fewer_than_two_hundred_values_keep_their_extremes(self):
+        stats = value_stats(np.r_[np.linspace(0.0, 100.0, 198), 1e4])
+        self.assertEqual((stats.q_low, stats.q_high), (0.0, 1e4))
+
+    def test_an_outlier_in_the_history_does_not_hide_the_same_outlier_again(self):
+        # 50 days of a device that sends every hour, with one outlier among them.
+        stats = value_stats(np.r_[np.linspace(0.0, 1000.0, 1199), 1600.0])
+        self.assertLess(stats.upper(), 1600.0)
 
     def test_too_few_values_give_no_statistic(self):
         self.assertIsNone(value_stats(np.ones(MIN_SAMPLES - 1)))

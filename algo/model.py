@@ -26,7 +26,8 @@ if typing.TYPE_CHECKING:
     from .stats import GapStats, ValueStats
 
 # 3: the statistics of algo.stats, without a curve model.
-SCHEMA_VERSION = 3
+# 4: the range of the values without their most extreme values, instead of the 0.01 % and 99.99 % quantiles.
+SCHEMA_VERSION = 4
 
 
 @dataclasses.dataclass

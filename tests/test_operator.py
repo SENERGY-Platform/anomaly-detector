@@ -122,7 +122,7 @@ class TestRun(OperatorTestCase):
         op = self.operator({"orig": profile()})
         results = self.infer(op, 1000.0, T0, device_id="", original_input_ids="orig")
         self.assertEqual(results[0]["device_id"], "orig")
-        self.assertEqual(results[0]["threshold"], 149.0)
+        self.assertEqual(results[0]["threshold"], 170.0)
 
     def test_message_without_value_does_not_raise(self):
         op = self.operator({KEY: profile()})
@@ -142,12 +142,12 @@ class TestExtreme(OperatorTestCase):
         op = self.operator({KEY: profile()})
         (result,) = self.infer(op, 180.0, T0)
         self.assertEqual(result, {"type": "extreme_value", "sub_type": "high", "value": 180.0, "mean": 100.0,
-                                  "threshold": 149.0, "device_id": KEY})
+                                  "threshold": 170.0, "device_id": KEY})
 
     def test_low_value_gives_the_lower_limit_as_threshold(self):
         op = self.operator({KEY: profile()})
         (result,) = self.infer(op, 20.0, T0)
-        self.assertEqual((result["sub_type"], result["threshold"]), ("low", 51.0))
+        self.assertEqual((result["sub_type"], result["threshold"]), ("low", 30.0))
 
     def test_one_report_per_excursion(self):
         op = self.operator({KEY: profile()}, check_receive_time_outlier=False)
